@@ -1,0 +1,13 @@
+"rule_engines": [
+    {
+        "instance_name": "re-audit-amqp-instance",
+        "plugin_name": "re-audit-amqp",
+        "plugin_specific_configuration" : {
+            "pep_regex_to_match" : "audit_.*",
+            "amqp_topic" : "amq.topic",
+            "amqp_location" : "localhost:5672",
+            "amqp_options" : ""
+        }
+
+    }
+]
