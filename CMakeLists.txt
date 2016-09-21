@@ -7,6 +7,8 @@ set(CMAKE_CXX_COMPILER ${IRODS_EXTERNALS_FULLPATH_CLANG}/bin/clang++)
 
 project(re-audit-amqp C CXX)
 
+include(${IRODS_TARGETS_PATH})
+
 if (NOT CMAKE_INSTALL_PREFIX)
   set(CMAKE_INSTALL_PREFIX "/" CACHE STRING "Install root path. Change from \"/\" for run-in-place installations." FORCE)
   message(STATUS "Setting unspecified CMAKE_INSTALL_PREFIX to '${CMAKE_INSTALL_PREFIX}'. This is the correct setting for normal builds.")
@@ -59,7 +61,6 @@ set(
 set(
   IRODS_AUDIT_PLUGIN_LOCKING_SERVER_LINK_LIBRARIES
   irods_server
-  irods_clerver
   )
 
 set(
@@ -76,7 +77,7 @@ set(
   target_include_directories(
       ${PLUGIN}
       PRIVATE
-      /usr/include/irods
+      ${IRODS_INCLUDE_DIRS}
       ${IRODS_EXTERNALS_FULLPATH_QPID}/include
       ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
       ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
