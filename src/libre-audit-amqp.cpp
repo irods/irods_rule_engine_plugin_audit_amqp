@@ -40,86 +40,42 @@ static qpid::messaging::Sender      amqp_sender;
 
 irods::error get_re_configs(
     const std::string& _instance_name ) {
+    try {
+        const auto& re_plugin_arr = irods::get_server_property< const std::vector< boost::any >& >( irods::CFG_RULE_ENGINES_KW );
+        for ( const auto& elem : re_plugin_arr ) {
+            const auto& plugin_config = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( elem );
+            const auto& inst_name = boost::any_cast< const std::string& >( plugin_config.at( irods::CFG_INSTANCE_NAME_KW ) );
+            if ( inst_name == _instance_name ) {
+                if ( plugin_config.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
+                    const auto& plugin_spec_cfg = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( plugin_config.at( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) );
 
-    typedef irods::configuration_parser::object_t object_t;
-    typedef irods::configuration_parser::array_t  array_t;
+                    audit_pep_regex_to_match = boost::any_cast< std::string >( plugin_spec_cfg.at( "pep_regex_to_match" ) );
+                    audit_amqp_topic         = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_topic" ) );
+                    audit_amqp_location      = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_location" ) );
+                    audit_amqp_options       = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_options" ) );
+                } else {
+                    rodsLog(
+                        LOG_DEBUG,
+                        "%s - using default configuration: regex - %s, topic - %s, location - %s",
+                        audit_pep_regex_to_match.c_str(),
+                        audit_amqp_topic.c_str(),
+                        audit_amqp_location.c_str() );
+                }
 
-    array_t re_plugin_arr;
-    irods::error ret = irods::get_server_property<
-          array_t > (
-              irods::CFG_RULE_ENGINES_KW,
-              re_plugin_arr );
-    if(!ret.ok()) {
-        return PASS(ret);
-    }
-
-    bool found_instance = false;
-    object_t plugin_config;
-    for( auto itr : re_plugin_arr ) {
-        try {
-            plugin_config = boost::any_cast<object_t>( itr );
-        } catch( const boost::bad_any_cast& ) {
-            std::stringstream msg;
-            msg << "[" << _instance_name << "] failed to any_cast a rule_engines object";
-            return ERROR(
-                       INVALID_ANY_CAST,
-                       msg.str() );
-        }
-
-        try {
-            const std::string inst_name = boost::any_cast<std::string>(plugin_config[irods::CFG_INSTANCE_NAME_KW]);
-            if( inst_name == _instance_name) {
-                found_instance = true;
-                break;
+                return SUCCESS();
             }
         }
-        catch( const boost::bad_any_cast& ) {
-            continue;
-        }
+    } catch ( const boost::bad_any_cast& e ) {
+        return ERROR( INVALID_ANY_CAST, e.what() );
+    } catch ( const std::out_of_range& e ) {
+        return ERROR( KEY_NOT_FOUND, e.what() );
     }
 
-    if( !found_instance ) {
-        std::stringstream msg;
-        msg << "failed to find configuration for re-irods plugin ["
-            << _instance_name << "]";
-        rodsLog( LOG_ERROR, "%s", msg.str().c_str() );
-        return ERROR(
-                SYS_INVALID_INPUT_PARAM,
-                msg.str() );
-    }
-
-    if( !plugin_config.has_entry(irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW) ) {
-        rodsLog(
-            LOG_DEBUG,
-            "%s - using default configuration: regex - %s, topic - %s, location - %s",
-            audit_pep_regex_to_match.c_str(),
-            audit_amqp_topic.c_str(),
-            audit_amqp_location.c_str() );
-        return SUCCESS();
-    }
-
-    object_t plugin_spec_cfg;
-    try {
-        plugin_spec_cfg = boost::any_cast<object_t>( plugin_config[irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW] );
-    } catch( const boost::bad_any_cast& ) {
-        std::stringstream msg;
-        msg << "[" << _instance_name << "] failed to any_cast " << irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW;
-        return ERROR(
-                   INVALID_ANY_CAST,
-                   msg.str() );
-    }
-
-    try {
-        audit_pep_regex_to_match = boost::any_cast<std::string>( plugin_spec_cfg["pep_regex_to_match"] );
-        audit_amqp_topic         = boost::any_cast<std::string>( plugin_spec_cfg["amqp_topic"] );
-        audit_amqp_location      = boost::any_cast<std::string>( plugin_spec_cfg["amqp_location"] );
-        audit_amqp_options       = boost::any_cast<std::string>( plugin_spec_cfg["amqp_options"] );
-    }
-    catch( boost::bad_any_cast& ) {
-        return ERROR( INVALID_ANY_CAST, "failed." );
-    }
-
-    return SUCCESS();
+    std::stringstream msg;
+    msg << "failed to find configuration for audit_amqp plugin ["
+        << _instance_name << "]";
+    rodsLog( LOG_ERROR, "%s", msg.str().c_str() );
+    return ERROR( SYS_INVALID_INPUT_PARAM, msg.str() );;
 }
 
 irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) {
@@ -140,7 +96,7 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
     catch(const std::exception& _e) {
         rodsLog(
             LOG_ERROR,
-            "Message Bus conneciton failed [%s]", _e.what() );
+            "Message Bus connection failed [%s]", _e.what() );
         if(amqp_connection && amqp_connection->isOpen()) {
             amqp_connection->close();
         }
@@ -265,11 +221,10 @@ irods::error exec_rule(
     } // for itr
 
 
-    //char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
     char* tmp_buf = json_dumps( obj, JSON_COMPACT | JSON_SORT_KEYS );
 
     if(amqp_connection && amqp_connection->isOpen()) {
-        rodsLog( LOG_NOTICE, "XXXX - CONNECTED\n%s",tmp_buf);
+        rodsLog( LOG_DEBUG, "CONNECTED TO AMQP\n%s",tmp_buf);
         err = SUCCESS();
        
         try { 
@@ -282,12 +237,9 @@ irods::error exec_rule(
         }
     } 
     else {
-#if 0
-        err = _eff_hdlr(
-                  std::string("writeLine"),
-                  std::string("serverLog"),
-                  std::string(tmp_buf));
-#endif
+        rodsLog(
+            LOG_ERROR,
+            "AMQP connection is not open" );
     }
 
     free(tmp_buf);
@@ -323,9 +275,11 @@ irods::pluggable_rule_engine<irods::default_re_ctx>* plugin_factory( const std::
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule ) );
+
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_text",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_text ) );
+
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_expression",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_expression ) );
