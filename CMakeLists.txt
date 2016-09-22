@@ -5,7 +5,7 @@ find_package(IRODS 4.2.0 EXACT REQUIRED)
 set(CMAKE_C_COMPILER ${IRODS_EXTERNALS_FULLPATH_CLANG}/bin/clang)
 set(CMAKE_CXX_COMPILER ${IRODS_EXTERNALS_FULLPATH_CLANG}/bin/clang++)
 
-project(re-audit-amqp C CXX)
+project(irods_rule_engine_plugin_audit_amqp C CXX)
 
 include(${IRODS_TARGETS_PATH})
 
@@ -44,19 +44,20 @@ find_package(OpenSSL REQUIRED)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-z,defs")
 add_compile_options(-nostdinc++)
 add_compile_options(-std=c++14)
 link_libraries(c++abi)
 include_directories(${IRODS_EXTERNALS_FULLPATH_CLANG}/include/c++/v1)
 
 set(
-  IRODS_AUDIT_PLUGIN_LOCKING_SERVER_COMPILE_DEFINITIONS
+  IRODS_RULE_ENGINE_PLUGIN_AUDIT_AMQP_COMPILE_DEFINITIONS
   RODS_SERVER
   ENABLE_RE
   )
 
 set(
-  IRODS_AUDIT_PLUGIN_LOCKING_SERVER_LINK_LIBRARIES
+  IRODS_RULE_ENGINE_PLUGIN_AUDIT_AMQP_LINK_LIBRARIES
   irods_server
   )
 
@@ -68,7 +69,7 @@ set(
   add_library(
       ${PLUGIN}
       MODULE
-      ${CMAKE_SOURCE_DIR}/src/libirods_rule_engine_plugin-audit_amqp.cpp
+      ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp
       )
 
   target_include_directories(
@@ -84,19 +85,22 @@ set(
   target_link_libraries(
       ${PLUGIN}
       PRIVATE
-      ${IRODS_AUDIT_PLUGIN_LOCKING_SERVER_LINK_LIBRARIES}
+      ${IRODS_RULE_ENGINE_PLUGIN_AUDIT_AMQP_LINK_LIBRARIES}
+      ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidclient.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidcommon.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidmessaging.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton-cpp.so
       ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
+      ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
       ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
       ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/lib/libarchive.so
       ${OPENSSL_CRYPTO_LIBRARY}
+      irods_common
       )
 
-  target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_AUDIT_PLUGIN_LOCKING_SERVER_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS} BOOST_SYSTEM_NO_DEPRECATED)
+  target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_RULE_ENGINE_PLUGIN_AUDIT_AMQP_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS} BOOST_SYSTEM_NO_DEPRECATED)
   target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
   set_property(TARGET ${PLUGIN} PROPERTY CXX_STANDARD ${IRODS_CXX_STANDARD})
 

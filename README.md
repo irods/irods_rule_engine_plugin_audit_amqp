@@ -28,7 +28,7 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
 
 ```json
 {
-    "instance_name": "re-audit-amqp-instance",
+    "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
     "plugin_name": "irods_rule_engine_plugin-audit_amqp",
     "plugin_specific_configuration" : {
         "pep_regex_to_match" : "audit_.*",
