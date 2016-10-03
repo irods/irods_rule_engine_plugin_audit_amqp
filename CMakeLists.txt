@@ -62,13 +62,13 @@ set(
 
 set(
   PLUGIN
-  re-audit-amqp
+  irods_rule_engine_plugin-audit_amqp
   )
 
   add_library(
       ${PLUGIN}
       MODULE
-      ${CMAKE_SOURCE_DIR}/src/libre-audit-amqp.cpp
+      ${CMAKE_SOURCE_DIR}/src/libirods_rule_engine_plugin-audit_amqp.cpp
       )
 
   target_include_directories(
@@ -105,7 +105,7 @@ install(
     DESTINATION var/lib/irods/plugins/rule_engines
   )
 
-set(CPACK_PACKAGE_FILE_NAME "irods-re-audit-amqp-${IRODS_VERSION}-${IRODS_LINUX_DISTRIBUTION_NAME}${IRODS_LINUX_DISTRIBUTION_VERSION_MAJOR}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_PACKAGE_FILE_NAME "irods-rule-engine-plugin-audit-amqp-${IRODS_VERSION}-${IRODS_LINUX_DISTRIBUTION_NAME}${IRODS_LINUX_DISTRIBUTION_VERSION_MAJOR}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_COMPONENT_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_COMPONENTS_GROUPING IGNORE)
@@ -135,10 +135,10 @@ set(CPACK_RPM_PACKAGE_AUTOPROV 0)
 
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 
-set(CPACK_DEBIAN_PACKAGE_NAME "irods-re-audit-amqp")
+set(CPACK_DEBIAN_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6, qpid-client")
 
-set(CPACK_RPM_PACKAGE_NAME "irods-re-audit-amqp")
+set(CPACK_RPM_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
 if (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos" OR IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos linux")
   set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}, openssl")
 elseif (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "opensuse")
