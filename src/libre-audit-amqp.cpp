@@ -41,13 +41,13 @@ static qpid::messaging::Sender      amqp_sender;
 irods::error get_re_configs(
     const std::string& _instance_name ) {
     try {
-        const auto& re_plugin_arr = irods::get_server_property< const std::vector< boost::any >& >( irods::CFG_RULE_ENGINES_KW );
-        for ( const auto& elem : re_plugin_arr ) {
-            const auto& plugin_config = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( elem );
-            const auto& inst_name = boost::any_cast< const std::string& >( plugin_config.at( irods::CFG_INSTANCE_NAME_KW ) );
+        const auto& rule_engines = irods::get_server_property< const std::vector< boost::any >& >(std::vector<std::string>{ irods::CFG_PLUGIN_CONFIGURATION_KW, irods::PLUGIN_TYPE_RULE_ENGINE } );
+        for ( const auto& elem : rule_engines ) {
+            const auto& rule_engine = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( elem );
+            const auto& inst_name = boost::any_cast< const std::string& >( rule_engine.at( irods::CFG_INSTANCE_NAME_KW ) );
             if ( inst_name == _instance_name ) {
-                if ( plugin_config.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
-                    const auto& plugin_spec_cfg = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( plugin_config.at( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) );
+                if ( rule_engine.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
+                    const auto& plugin_spec_cfg = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( rule_engine.at( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) );
 
                     audit_pep_regex_to_match = boost::any_cast< std::string >( plugin_spec_cfg.at( "pep_regex_to_match" ) );
                     audit_amqp_topic         = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_topic" ) );
