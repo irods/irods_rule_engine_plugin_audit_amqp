@@ -88,6 +88,8 @@ set(
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidclient.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidcommon.so
       ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidmessaging.so
+      ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton.so
+      ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton-cpp.so
       ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
       ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
       ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/lib/libarchive.so

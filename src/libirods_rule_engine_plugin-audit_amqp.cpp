@@ -4,6 +4,8 @@
 #include "irods_re_serialization.hpp"
 #include "irods_server_properties.hpp"
 
+#undef LIST
+
 // =-=-=-=-=-=-=-
 // stl includes
 #include <iostream>
@@ -20,23 +22,18 @@
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 
-#include "jansson.h"
+// =-=-=-=-=-=-=-
+// proton includes
+#include "proton/message.h"
+#include "proton/messenger.h"
 
-#include <qpid/messaging/Connection.h>
-#include <qpid/messaging/Message.h>
-#include <qpid/messaging/Receiver.h>
-#include <qpid/messaging/Sender.h>
-#include <qpid/messaging/Session.h>
+#include "jansson.h"
 
 
 static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic         = "irods_audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
 static std::string audit_amqp_options       = "";
-
-static qpid::messaging::Connection* amqp_connection = nullptr;
-static qpid::messaging::Session     amqp_session;
-static qpid::messaging::Sender      amqp_sender;
 
 irods::error get_re_configs(
     const std::string& _instance_name ) {
@@ -78,6 +75,7 @@ irods::error get_re_configs(
     return ERROR( SYS_INVALID_INPUT_PARAM, msg.str() );;
 }
 
+
 irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) {
     (void) _u;
 
@@ -86,39 +84,12 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
         irods::log(PASS(ret));
     }
 
-    try {
-        amqp_connection = new qpid::messaging::Connection(audit_amqp_location, audit_amqp_options);
-        amqp_connection->open();
-
-        amqp_session = amqp_connection->createSession();
-        amqp_sender  = amqp_session.createSender(audit_amqp_topic);
-    }
-    catch(const std::exception& _e) {
-        rodsLog(
-            LOG_ERROR,
-            "Message Bus connection failed [%s]", _e.what() );
-        if(amqp_connection && amqp_connection->isOpen()) {
-            amqp_connection->close();
-        }
-    }
-
     return SUCCESS();
 }
+#include "proton/message.h"
+#include "proton/messenger.h"
 
 irods::error stop(irods::default_re_ctx& _u,const std::string&) {
-    (void) _u;
-    if(amqp_connection && amqp_connection->isOpen()) {
-        amqp_connection->close();
-    }
-
-    try {
-        delete amqp_connection;
-    }
-    catch( const std::exception& _e) {
-        rodsLog(
-            LOG_ERROR,
-            "Message Bus destruction failed [%s]", _e.what() );
-    }
 
     return SUCCESS();
 }
@@ -144,6 +115,7 @@ irods::error exec_rule(
     std::string            _rn,
     std::list<boost::any>& _ps,
     irods::callback        _eff_hdlr) {
+
     using namespace std::chrono;
 
     ruleExecInfo_t* rei = nullptr;
@@ -174,7 +146,6 @@ irods::error exec_rule(
         obj,
         "1__hostname",
         json_string(host_name));
-
 
     pid_t pid = getpid();
     std::stringstream pid_str; pid_str << pid;
@@ -220,27 +191,37 @@ irods::error exec_rule(
         } // for elem
     } // for itr
 
-
+    //char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
     char* tmp_buf = json_dumps( obj, JSON_COMPACT | JSON_SORT_KEYS );
 
-    if(amqp_connection && amqp_connection->isOpen()) {
-        rodsLog( LOG_DEBUG, "CONNECTED TO AMQP\n%s",tmp_buf);
-        err = SUCCESS();
-       
-        try { 
-            amqp_sender.send(qpid::messaging::Message(tmp_buf));
-        }
-        catch( const std::exception& _e ) {
-            rodsLog(
-                LOG_ERROR,
-                "Message Bus Send failed [%s]", _e.what() );
-        }
-    } 
-    else {
-        rodsLog(
-            LOG_ERROR,
-            "AMQP connection is not open" );
-    }
+    
+    std::string msg(tmp_buf);
+    //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
+
+    pn_message_t * message;
+    pn_messenger_t * messenger;
+    pn_data_t * body;
+
+    message = pn_message();
+    messenger = pn_messenger(NULL);
+  
+    pn_messenger_start(messenger);
+
+    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
+
+    pn_message_set_address(message, address.c_str());
+    body = pn_message_body(message);
+    pn_data_put_string(body, pn_bytes(strlen(tmp_buf), tmp_buf));
+    pn_messenger_put(messenger, message);
+    //rodsLog(LOG_NOTICE, "pn_messenger_put errno = %i", pn_messenger_errno(messenger));
+    pn_messenger_send(messenger, -1);
+    //rodsLog(LOG_NOTICE, "pn_messenger_send errno = %i", pn_messenger_errno(messenger));
+
+    pn_messenger_stop(messenger);
+    pn_messenger_free(messenger);
+    pn_message_free(message);
+
+
 
     free(tmp_buf);
     json_decref(obj);
@@ -275,11 +256,9 @@ irods::pluggable_rule_engine<irods::default_re_ctx>* plugin_factory( const std::
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule ) );
-
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_text",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_text ) );
-
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_expression",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_expression ) );
