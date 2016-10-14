@@ -86,8 +86,6 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
     return SUCCESS();
 }
-#include "proton/message.h"
-#include "proton/messenger.h"
 
 irods::error stop(irods::default_re_ctx& _u,const std::string&) {
 
