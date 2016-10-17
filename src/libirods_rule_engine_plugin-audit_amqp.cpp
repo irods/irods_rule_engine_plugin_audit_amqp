@@ -35,6 +35,8 @@ static std::string audit_amqp_topic         = "irods_audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
 static std::string audit_amqp_options       = "";
 
+static pn_messenger_t * messenger = nullptr;
+
 irods::error get_re_configs(
     const std::string& _instance_name ) {
     try {
@@ -79,16 +81,22 @@ irods::error get_re_configs(
 irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) {
     (void) _u;
 
+
     irods::error ret = get_re_configs( _instance_name );
     if( !ret.ok() ) {
         irods::log(PASS(ret));
     }
 
+    messenger = pn_messenger(NULL);
+    pn_messenger_start(messenger);
+    //pn_messenger_set_blocking(messenger, false);  // do not block
+
     return SUCCESS();
 }
 
 irods::error stop(irods::default_re_ctx& _u,const std::string&) {
-
+    pn_messenger_stop(messenger);
+    pn_messenger_free(messenger);
     return SUCCESS();
 }
 
@@ -197,13 +205,9 @@ irods::error exec_rule(
     //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
 
     pn_message_t * message;
-    pn_messenger_t * messenger;
     pn_data_t * body;
 
     message = pn_message();
-    messenger = pn_messenger(NULL);
-  
-    pn_messenger_start(messenger);
 
     std::string address = audit_amqp_location + "/" + audit_amqp_topic;
 
@@ -215,11 +219,7 @@ irods::error exec_rule(
     pn_messenger_send(messenger, -1);
     //rodsLog(LOG_NOTICE, "pn_messenger_send errno = %i", pn_messenger_errno(messenger));
 
-    pn_messenger_stop(messenger);
-    pn_messenger_free(messenger);
     pn_message_free(message);
-
-
 
     free(tmp_buf);
     json_decref(obj);
