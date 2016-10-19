@@ -137,10 +137,10 @@ irods::error exec_rule(
                   "json_object() failed");
     }
 
-
-    system_clock::time_point tp = system_clock::now();
-    std::time_t t = system_clock::to_time_t(tp);
-    std::stringstream time_str; time_str << std::ctime(&t);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    std::stringstream time_str; time_str << time_ms;
     json_object_set(
         obj,
         "0__time_stamp",
