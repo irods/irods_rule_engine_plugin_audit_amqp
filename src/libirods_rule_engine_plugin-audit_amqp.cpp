@@ -15,6 +15,8 @@
 #include <chrono>
 #include <ctime>
 #include <sstream>
+#include <map>
+#include <iostream>
 
 // =-=-=-=-=-=-=-
 // boost includes
@@ -36,6 +38,27 @@ static std::string audit_amqp_location      = "localhost:5672";
 static std::string audit_amqp_options       = "";
 
 static pn_messenger_t * messenger = nullptr;
+
+int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::string& arg) {
+    std::map<std::string, int>::iterator iter = arg_map.find(arg);
+    if (iter == arg_map.end()) {
+        arg_map.insert(std::make_pair(arg, 1));
+        return 1;
+    } else {
+        iter->second = iter->second+1;
+        return iter->second;
+    }
+}
+
+int get_arg_count(std::map<std::string, int>& arg_map, std::string arg) {
+    std::map<std::string, int>::iterator iter = arg_map.find(arg);
+    if (iter == arg_map.end()) {
+        return 0;
+    } else {
+        return iter->second;
+   }
+}
+
 
 irods::error get_re_configs(
     const std::string& _instance_name ) {
@@ -124,6 +147,9 @@ irods::error exec_rule(
 
     using namespace std::chrono;
 
+    // stores a counter of unique arg types
+    std::map<std::string, int> arg_type_map;
+
     ruleExecInfo_t* rei = nullptr;
     irods::error err = _eff_hdlr("unsafe_ms_ctx", &rei);
     if(!err.ok()) {
@@ -165,7 +191,6 @@ irods::error exec_rule(
         "3__rule_name",
         json_string(_rn.c_str()));
 
-    size_t ctr = 3;
     for( auto itr : _ps ) {
         // serialize the parameter to a map
         irods::re_serialization::serialized_parameter_t param;
@@ -177,7 +202,9 @@ irods::error exec_rule(
              continue;
         }
 
+        size_t ctr = 3;
         for( auto elem : param ) {
+
             std::stringstream ctr_str;
             ctr_str << ctr;
             
@@ -186,12 +213,27 @@ irods::error exec_rule(
             key += "__";
             key += elem.first;
 
+            //std::stringstream ctr_str;
+            //ctr_str << ctr;
+
+            /*size_t ctr = insert_arg_into_counter_map(arg_type_map, elem.first);
+            std::stringstream ctr_str;
+            ctr_str << ctr;
+            
+            std::string key = elem.first;
+            if (ctr > 1) {
+                key += "__";
+                key += ctr_str.str();
+            }*/
+
+            rodsLog(LOG_NOTICE, "PEP: %s %s", key.c_str(), elem.second.c_str());
+        
             json_object_set(
                 obj,
                 key.c_str(),
                 json_string(elem.second.c_str()));
-            
-            ++ctr;
+           
+            ++ctr; 
             ctr_str.clear();
 
         } // for elem
