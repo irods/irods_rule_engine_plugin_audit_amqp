@@ -39,6 +39,8 @@ static std::string audit_amqp_options       = "";
 
 static pn_messenger_t * messenger = nullptr;
 
+// Insert the key arg into arg_map and storing the number of insertions of arg as the value.
+// The value (number of insertions) is returned.
 int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::string& arg) {
     std::map<std::string, int>::iterator iter = arg_map.find(arg);
     if (iter == arg_map.end()) {
@@ -49,16 +51,6 @@ int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::
         return iter->second;
     }
 }
-
-int get_arg_count(std::map<std::string, int>& arg_map, std::string arg) {
-    std::map<std::string, int>::iterator iter = arg_map.find(arg);
-    if (iter == arg_map.end()) {
-        return 0;
-    } else {
-        return iter->second;
-   }
-}
-
 
 irods::error get_re_configs(
     const std::string& _instance_name ) {
@@ -169,26 +161,26 @@ irods::error exec_rule(
     std::stringstream time_str; time_str << time_ms;
     json_object_set(
         obj,
-        "0__time_stamp",
+        "__BEGIN_JSON__time_stamp",
         json_string(time_str.str().c_str()));
 
     char host_name[MAX_NAME_LEN];
     gethostname( host_name, MAX_NAME_LEN );
     json_object_set(
         obj,
-        "1__hostname",
+        "hostname",
         json_string(host_name));
 
     pid_t pid = getpid();
     std::stringstream pid_str; pid_str << pid;
     json_object_set(
         obj,
-        "2__pid",
+        "pid",
         json_string(pid_str.str().c_str()));
 
     json_object_set(
         obj,
-        "3__rule_name",
+        "rule_name",
         json_string(_rn.c_str()));
 
     for( auto itr : _ps ) {
@@ -202,21 +194,9 @@ irods::error exec_rule(
              continue;
         }
 
-        size_t ctr = 3;
         for( auto elem : param ) {
 
-            std::stringstream ctr_str;
-            ctr_str << ctr;
-            
-            std::string key;
-            key += ctr_str.str();
-            key += "__";
-            key += elem.first;
-
-            //std::stringstream ctr_str;
-            //ctr_str << ctr;
-
-            /*size_t ctr = insert_arg_into_counter_map(arg_type_map, elem.first);
+            size_t ctr = insert_arg_into_counter_map(arg_type_map, elem.first);
             std::stringstream ctr_str;
             ctr_str << ctr;
             
@@ -224,7 +204,7 @@ irods::error exec_rule(
             if (ctr > 1) {
                 key += "__";
                 key += ctr_str.str();
-            }*/
+            }
 
             rodsLog(LOG_NOTICE, "PEP: %s %s", key.c_str(), elem.second.c_str());
         
