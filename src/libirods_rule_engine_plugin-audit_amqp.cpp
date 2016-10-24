@@ -206,8 +206,6 @@ irods::error exec_rule(
                 key += ctr_str.str();
             }
 
-            rodsLog(LOG_NOTICE, "PEP: %s %s", key.c_str(), elem.second.c_str());
-        
             json_object_set(
                 obj,
                 key.c_str(),
