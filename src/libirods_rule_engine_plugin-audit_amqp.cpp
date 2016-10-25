@@ -161,7 +161,7 @@ irods::error exec_rule(
     std::stringstream time_str; time_str << time_ms;
     json_object_set(
         obj,
-        "__BEGIN_JSON__time_stamp",
+        "time_stamp",
         json_string(time_str.str().c_str()));
 
     char host_name[MAX_NAME_LEN];
@@ -217,11 +217,8 @@ irods::error exec_rule(
         } // for elem
     } // for itr
 
-    //char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
-    char* tmp_buf = json_dumps( obj, JSON_COMPACT | JSON_SORT_KEYS );
-
-    
-    std::string msg(tmp_buf);
+    char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
+    std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
     //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
 
     pn_message_t * message;
@@ -233,7 +230,7 @@ irods::error exec_rule(
 
     pn_message_set_address(message, address.c_str());
     body = pn_message_body(message);
-    pn_data_put_string(body, pn_bytes(strlen(tmp_buf), tmp_buf));
+    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
     pn_messenger_put(messenger, message);
     //rodsLog(LOG_NOTICE, "pn_messenger_put errno = %i", pn_messenger_errno(messenger));
     pn_messenger_send(messenger, -1);
