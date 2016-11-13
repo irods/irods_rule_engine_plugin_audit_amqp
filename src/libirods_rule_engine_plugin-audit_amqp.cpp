@@ -131,6 +131,10 @@ irods::error rule_exists(irods::default_re_ctx&, std::string _rn, bool& _ret) {
     return SUCCESS();
 }
 
+irods::error list_rules(irods::default_re_ctx&, std::vector<std::string>&) {
+    return SUCCESS;
+}
+
 irods::error exec_rule(
     irods::default_re_ctx&,
     std::string            _rn,
@@ -268,12 +272,18 @@ irods::pluggable_rule_engine<irods::default_re_ctx>* plugin_factory( const std::
             "rule_exists",
             std::function<irods::error(irods::default_re_ctx&, std::string, bool&)>( rule_exists ) );
 
+    re->add_operation<irods::default_re_ctx&, std::vector<std::string>&>(
+            "list_rules",
+            std::function<irods::error(irods::default_re_ctx&, std::vector<std::string>&)>( list_rules ) );
+
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule ) );
+
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_text",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_text ) );
+
     re->add_operation<irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback>(
             "exec_rule_expression",
             std::function<irods::error(irods::default_re_ctx&,std::string,std::list<boost::any>&,irods::callback)>( exec_rule_expression ) );
