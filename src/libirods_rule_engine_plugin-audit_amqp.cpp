@@ -132,7 +132,7 @@ irods::error rule_exists(irods::default_re_ctx&, std::string _rn, bool& _ret) {
 }
 
 irods::error list_rules(irods::default_re_ctx&, std::vector<std::string>&) {
-    return SUCCESS;
+    return SUCCESS();
 }
 
 irods::error exec_rule(
