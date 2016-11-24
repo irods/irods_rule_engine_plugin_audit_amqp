@@ -108,7 +108,7 @@ install(
   TARGETS
   ${PLUGIN}
   LIBRARY
-    DESTINATION var/lib/irods/plugins/rule_engines
+    DESTINATION usr/lib/irods/plugins/rule_engines
   )
 
 set(CPACK_PACKAGE_FILE_NAME "irods-rule-engine-plugin-audit-amqp-${IRODS_VERSION}-${IRODS_LINUX_DISTRIBUTION_NAME}${IRODS_LINUX_DISTRIBUTION_VERSION_MAJOR}-${CMAKE_SYSTEM_PROCESSOR}")

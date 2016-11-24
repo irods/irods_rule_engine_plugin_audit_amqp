@@ -1,4 +1,4 @@
-# iRODS Rule Engine Plugin - Audit
+# iRODS Rule Engine Plugin - Audit via AMQP
 
 This C++ plugin provides the iRODS platform a rule engine that emits a single AMQP message to the configured topic for every policy enforcement point (PEP) encountered by the iRODS server.
 
@@ -18,7 +18,7 @@ make package
 
 The packages produced by CMake will install the Audit plugin shared object file:
 
-`/var/lib/irods/plugins/rule_engines/libirods_rule_engine_plugin-audit_amqp.so`
+`/usr/lib/irods/plugins/rule_engines/libirods_rule_engine_plugin-audit_amqp.so`
 
 # Configuration
 
