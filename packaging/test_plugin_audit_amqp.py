@@ -2,16 +2,7 @@ import time, sys, re
 import json
 import unittest
 import subprocess
-
-import importlib
-try:
-    importlib.import_module('stomp')
-except ImportError:
-    import pip
-    pip.main(['install', 'stomp.py'])
-finally:
-    globals()['stomp'] = importlib.import_module('stomp')
-
+import stomp
 
 class DoNothingListener(stomp.ConnectionListener):
     def on_error(self, headers, message):
