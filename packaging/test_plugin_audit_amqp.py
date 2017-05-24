@@ -4,11 +4,14 @@ import unittest
 import subprocess
 import stomp
 
+
 class DoNothingListener(stomp.ConnectionListener):
     def on_error(self, headers, message):
         pass
+
     def on_message(self, headers, message):
         pass
+
 
 class TestListener(stomp.ConnectionListener):
     def __init__(self):
@@ -21,13 +24,14 @@ class TestListener(stomp.ConnectionListener):
 
     def on_error(self, headers, message):
         print('received an error "%s"' % message)
+
     def on_message(self, headers, message):
         if "__BEGIN_JSON__" in message:
             message = message.split("__BEGIN_JSON__")[1]
             if "__END_JSON__" in message:
                 message = message.split("__END_JSON__")[0]
         rule_name = json.loads(message)['rule_name']
-        #print("%s" % rule_name) 
+        # print("%s" % rule_name)
 
         # count the number of entries for this pep
         if rule_name in self.rule_counts.keys():
@@ -41,13 +45,10 @@ class TestListener(stomp.ConnectionListener):
             else:
                 self.rule_summation[rule_name] = int(json.loads(message)['int'])
 
+
 class TestAuditPlugin(unittest.TestCase):
     def setUp(self):
 
-        #call(['/var/lib/irods/scripts/irods/test/test_irods_rule_engine_plugin_audit_amqp_setup.sh'])
-        #subprocess.call(['wget', 'http://archive.apache.org/dist/activemq/5.13.2/apache-activemq-5.13.2-bin.tar.gz'])
-        #subprocess.call(['tar', 'xvfz', 'apache-activemq-5.13.2-bin.tar.gz'])
-        #subprocess.call(['apache-activemq-5.13.2/bin/activemq', 'start'])  #TODO run in backgroun
         subprocess.Popen(['cp', '/var/lib/irods/scripts/irods/test/test_plugin_audit_amqp_server_config.json', '/etc/irods/server_config.json'])
         time.sleep(3);
 
@@ -66,7 +67,6 @@ class TestAuditPlugin(unittest.TestCase):
     def tearDown(self):
         subprocess.call(['rm', 'testfile.dat']) 
 
-
     def test_put(self):
         self.purge_queue()
         listener = TestListener()
@@ -81,13 +81,14 @@ class TestAuditPlugin(unittest.TestCase):
 
         self.assertTrue('audit_pep_resource_write_post' in listener.rule_counts)
         write_pep_count = listener.rule_counts['audit_pep_resource_write_post']
-        self.assertGreaterEqual(write_pep_count, 1)
+        self.assertTrue(write_pep_count >= 1)
         self.assertTrue('audit_pep_auth_agent_auth_request_pre' in listener.rule_counts)
-        self.assertGreaterEqual(listener.rule_counts['audit_pep_auth_agent_auth_request_pre'], 1)
+        self.assertTrue(listener.rule_counts['audit_pep_auth_agent_auth_request_pre'] >= 1)
         self.assertTrue('audit_pep_resource_write_post' in listener.rule_summation)
         self.assertEqual(listener.rule_summation['audit_pep_resource_write_post'] / write_pep_count, 1048576)
 
     def test_get(self):
+        subprocess.call(['iput', '-f', 'testfile.dat'])
         self.purge_queue()
         listener = TestListener()
         conn = stomp.Connection()
@@ -101,10 +102,9 @@ class TestAuditPlugin(unittest.TestCase):
 
         self.assertTrue('audit_pep_resource_read_post' in listener.rule_counts)
         read_pep_count = listener.rule_counts['audit_pep_resource_read_post']
-        self.assertGreaterEqual(read_pep_count, 1)
+        self.assertTrue(read_pep_count >= 1)
         self.assertTrue('audit_pep_auth_agent_auth_request_pre' in listener.rule_counts)
-        self.assertGreaterEqual(listener.rule_counts['audit_pep_auth_agent_auth_request_pre'], 1)
+        self.assertTrue(listener.rule_counts['audit_pep_auth_agent_auth_request_pre'] >= 1)
         self.assertTrue('audit_pep_resource_read_post' in listener.rule_summation)
         self.assertEqual(listener.rule_summation['audit_pep_resource_read_post'] / read_pep_count, 1048576)
 
-#unittest.main()
