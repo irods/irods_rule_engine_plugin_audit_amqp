@@ -48,8 +48,8 @@ class TestAuditPlugin(unittest.TestCase):
         #subprocess.call(['wget', 'http://archive.apache.org/dist/activemq/5.13.2/apache-activemq-5.13.2-bin.tar.gz'])
         #subprocess.call(['tar', 'xvfz', 'apache-activemq-5.13.2-bin.tar.gz'])
         #subprocess.call(['apache-activemq-5.13.2/bin/activemq', 'start'])  #TODO run in backgroun
-        #subprocess.Popen(['cp', '/var/lib/irods/scripts/irods/test/test_plugin_audit_amqp_server_config.json', '/etc/irods/server_config.json'])
-        #time.sleep(3);
+        subprocess.Popen(['cp', '/var/lib/irods/scripts/irods/test/test_plugin_audit_amqp_server_config.json', '/etc/irods/server_config.json'])
+        time.sleep(3);
 
         # create a test file
         subprocess.call(['dd', 'if=/dev/zero', 'of=testfile.dat', 'bs=1M', 'count=1'])
