@@ -41,3 +41,8 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
 
 Further information on this plugin is described in the slide deck available here: http://slides.com/irods/ugm2016-auditing-rule-engine-amqp
 
+Citations:
+
+Hao Xu, Jason Coposky, Ben Keller, Terrell Russell (2015) Pluggable Rule Engine Architecture. 7th iRODS User Group Meeting, University of North Carolina at Chapel Hill. June 2015. ([PDF](https://irods.org/uploads/2015/01/xu2015-pluggable_rule_engine.pdf))
+
+Hao Xu, Jason Coposky, Dan Bedard, Jewel H. Ward, Terrell Russell, Arcot Rajasekar, Reagan Moore, Ben Keller, Zoey Greer (2015) A Method for the Systematic Generation of Audit Logs in a Digital Preservation Environment and Its Experimental Implementation In a Production Ready System. 12th International Conference on Digital Preservation, University of North Carolina at Chapel Hill. November 2-6, 2015. ([PDF](https://irods.org/uploads/2015/01/xu2015_ipres-preservation_audit_logs_production.pdf)) ([direct link](https://phaidra.univie.ac.at/detail_object/o:429566)) 
