@@ -77,7 +77,8 @@
         ]
     }, 
     "rule_engine_namespaces": [
-        ""
+        "", 
+        "audit_"
     ], 
     "schema_name": "server_config", 
     "schema_validation_base_uri": "file:///var/lib/irods/configuration_schemas", 
