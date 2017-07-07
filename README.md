@@ -4,7 +4,7 @@ This C++ plugin provides the iRODS platform a rule engine that emits a single AM
 
 # Build
 
-Building the iRODS Audit Rule Engine Plugin requires version 4.2 of the iRODS software from github (http://github.com/irods/irods).
+Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.1 (http://github.com/irods/irods).
 
 ```
 cd irods_rule_engine_plugin_audit_amqp
@@ -37,6 +37,15 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
         "amqp_options" : ""
     }
 }
+```
+
+Add the new `audit_` namespace to the "rule_engine_namespaces" array within `server_config.json`:
+
+```
+    "rule_engine_namespaces": [
+        "", 
+        "audit_"
+    ], 
 ```
 
 Further information on this plugin is described in the slide deck available here: http://slides.com/irods/ugm2016-auditing-rule-engine-amqp
