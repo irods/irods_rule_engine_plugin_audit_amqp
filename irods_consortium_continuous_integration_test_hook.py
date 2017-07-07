@@ -10,7 +10,7 @@ import irods_python_ci_utilities
 
 
 def get_build_prerequisites_all():
-    return['irods-externals-qpid-with-proton0.34-0']
+    return[]
 
 
 def get_build_prerequisites_apt():
