@@ -6,6 +6,14 @@ This C++ plugin provides the iRODS platform a rule engine that emits a single AM
 
 Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.1 (http://github.com/irods/irods).
 
+This plugin requires the iRODS development and runtime packages to be installed on the build machine.
+
+Also, use the iRODS-built CMake (or CMake 3.7+):
+
+```
+export PATH=/opt/irods-externals/cmake3.5.2-0/bin:$PATH
+```
+
 ```
 cd irods_rule_engine_plugin_audit_amqp
 mkdir build
