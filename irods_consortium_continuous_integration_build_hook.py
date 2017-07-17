@@ -25,7 +25,7 @@ def get_build_prerequisites_all():
             'irods-externals-qpid-with-proton0.34-0']
 
 def get_build_prerequisites_apt():
-    return ['libcurl4-gnutls-dev', 'make', 'libssl-dev'] + get_build_prerequisites_all()
+    return ['libcurl4-gnutls-dev', 'make', 'libssl-dev', 'gcc'] + get_build_prerequisites_all()
 
 def get_build_prerequisites_yum():
     return ['curl-devel', 'openssl-devel'] + get_build_prerequisites_all()
