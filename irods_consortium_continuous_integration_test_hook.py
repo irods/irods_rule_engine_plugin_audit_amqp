@@ -54,15 +54,26 @@ def install_build_prerequisites():
             irods_python_ci_utilities.install_os_packages(['libstdc++6'])
 
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
-    irods_python_ci_utilities.subprocess_get_output(['wget', 'http://archive.apache.org/dist/activemq/5.13.2/apache-activemq-5.13.2-bin.tar.gz'])
-    irods_python_ci_utilities.subprocess_get_output(['tar', 'xvfz', 'apache-activemq-5.13.2-bin.tar.gz'])
-    irods_python_ci_utilities.subprocess_get_output(['apache-activemq-5.13.2/bin/activemq', 'start'])
+
+
+def install_messaging_package(message_broker):
+    if 'apache-activemq-' in message_broker:
+        version_number = message_broker.split('-')[2]
+        tarfile = message_broker + '-bin.tar.gz'
+        url = 'http://archive.apache.org/dist/activemq/' + version_number + '/' + tarfile
+        activemq_dir = message_broker + '/bin/activemq'
+
+        irods_python_ci_utilities.subprocess_get_output(['wget', url])
+        irods_python_ci_utilities.subprocess_get_output(['tar', 'xvfz', tarfile])
+        irods_python_ci_utilities.subprocess_get_output([activemq_dir, 'start'])
+
 
 
 def main():
     parser = optparse.OptionParser()
     parser.add_option('--output_root_directory')
     parser.add_option('--built_packages_root_directory')
+    parser.add_option('--message_broker', default='apache-activemq-5.14.1', help='MQ server package name that needs to be tested')
     options, _ = parser.parse_args()
 
     output_root_directory = options.output_root_directory
@@ -73,6 +84,7 @@ def main():
     irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
 
     install_build_prerequisites()
+    install_messaging_package(options.message_broker)
 
     time.sleep(10)
 
