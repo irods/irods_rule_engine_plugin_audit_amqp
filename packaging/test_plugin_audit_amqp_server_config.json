@@ -65,7 +65,7 @@
                 "plugin_specific_configuration" : {
                      "amqp_location" : "ANONYMOUS@localhost:5672",
                      "amqp_options" : "",
-                     "amqp_topic" : "queue://audit_messages",
+                     "amqp_topic" : "audit_messages",
                      "pep_regex_to_match" : "audit_.*"
                  }
             },
