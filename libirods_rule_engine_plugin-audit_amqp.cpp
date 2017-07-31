@@ -17,6 +17,7 @@
 #include <sstream>
 #include <map>
 #include <iostream>
+#include <fstream>
 
 // =-=-=-=-=-=-=-
 // boost includes
@@ -24,6 +25,7 @@
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 
 // =-=-=-=-=-=-=-
 // proton includes
@@ -37,6 +39,7 @@ static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic         = "irods_audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
 static std::string audit_amqp_options       = "";
+static std::string log_path_prefix          = "/tmp";
 static bool test_mode                       = false;
 
 static pn_messenger_t * messenger = nullptr;
@@ -71,11 +74,14 @@ irods::error get_re_configs(
                     audit_amqp_options        = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_options" ) );
 
                     // look for a test mode setting.  if it doesn't exist just keep test_mode at false.                    
+                    // if test_mode = true and log_path_prefix isn't set just leave the default
                     try {
                         std::string test_mode_str = boost::any_cast< std::string >( plugin_spec_cfg.at( "test_mode" ) );
                         test_mode = boost::iequals(test_mode_str, "true");
+                        if (test_mode) {
+                             log_path_prefix  = boost::any_cast< std::string >( plugin_spec_cfg.at( "log_path_prefix" ) );
+                        }
                     } catch (const std::out_of_range& e1) {}
-
  
                 } else {
                     rodsLog(
@@ -116,51 +122,54 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
     pn_messenger_start(messenger);
     //pn_messenger_set_blocking(messenger, false);  // do not block
     
+    json_t* obj = json_object();
+    if( !obj ) {
+        return ERROR(SYS_MALLOC_ERR, "json_object() failed");
+    }
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    std::stringstream time_str; time_str << time_ms;
+    json_object_set(obj, "time_stamp", json_string(time_str.str().c_str()));
+
+    char host_name[MAX_NAME_LEN];
+    gethostname( host_name, MAX_NAME_LEN );
+    json_object_set(obj, "hostname", json_string(host_name));
+
+    pid_t pid = getpid();
+    std::stringstream pid_str; pid_str << pid;
+    json_object_set(obj, "pid", json_string(pid_str.str().c_str()));
+
+    json_object_set(obj, "action", json_string("START"));
+
+    char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
+    std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
+
+    pn_message_t * message;
+    pn_data_t * body;
+
+    message = pn_message();
+
+    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
+
+    pn_message_set_address(message, address.c_str());
+    body = pn_message_body(message);
+    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
+    pn_messenger_put(messenger, message);
+    pn_messenger_send(messenger, -1);
+    
+    pn_message_free(message);
+
+    free(tmp_buf);
+    json_decref(obj);
+    
     if (test_mode) {
-        json_t* obj = json_object();
-        if( !obj ) {
-            return ERROR(SYS_MALLOC_ERR, "json_object() failed");
-        }
-
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-        std::stringstream time_str; time_str << time_ms;
-        json_object_set(obj, "time_stamp", json_string(time_str.str().c_str()));
-
-        pid_t pid = getpid();
-        std::stringstream pid_str; pid_str << pid;
-        json_object_set(obj, "pid", json_string(pid_str.str().c_str()));
-
-
-        json_object_set(obj, "action", json_string("START"));
-
-        char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
-        std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
-        //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
-
-        pn_message_t * message;
-        pn_data_t * body;
-
-        message = pn_message();
-
-        std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
-        pn_message_set_address(message, address.c_str());
-        body = pn_message_body(message);
-        pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
-        pn_messenger_put(messenger, message);
-        //rodsLog(LOG_NOTICE, "pn_messenger_put errno = %i", pn_messenger_errno(messenger));
-        pn_messenger_send(messenger, -1);
-        //rodsLog(LOG_NOTICE, "pn_messenger_send errno = %i", pn_messenger_errno(messenger));
-        
-        pn_message_free(message);
-
-        free(tmp_buf);
-        json_decref(obj);
-
-
-
+        std::ofstream log_file_ofstream; 
+        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
+        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+        log_file_ofstream.open(log_file);
+        log_file_ofstream << msg_str << std::endl;
     }
 
     return SUCCESS();
@@ -168,54 +177,60 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
 irods::error stop(irods::default_re_ctx& _u,const std::string&) {
 
-     if (test_mode) {
-
-        json_t* obj = json_object();
-        if( !obj ) {
-            return ERROR(SYS_MALLOC_ERR, "json_object() failed");
-        }
-
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-        std::stringstream time_str; time_str << time_ms;
-        json_object_set(obj, "time_stamp", json_string(time_str.str().c_str()));
-
-        pid_t pid = getpid();
-        std::stringstream pid_str; pid_str << pid;
-        json_object_set(obj, "pid", json_string(pid_str.str().c_str()));
-
-        json_object_set(obj, "action", json_string("END"));
-
-        char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
-        std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
-        //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
-
-        pn_message_t * message;
-        pn_data_t * body;
-
-        message = pn_message();
-
-        std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
-        pn_message_set_address(message, address.c_str());
-        body = pn_message_body(message);
-        pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
-        pn_messenger_put(messenger, message);
-        //rodsLog(LOG_NOTICE, "pn_messenger_put errno = %i", pn_messenger_errno(messenger));
-        pn_messenger_send(messenger, -1);
-        //rodsLog(LOG_NOTICE, "pn_messenger_send errno = %i", pn_messenger_errno(messenger));
-        
-        pn_message_free(message);
-
-        free(tmp_buf);
-        json_decref(obj);
-
-
+    json_t* obj = json_object();
+    if( !obj ) {
+        return ERROR(SYS_MALLOC_ERR, "json_object() failed");
     }
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    std::stringstream time_str; time_str << time_ms;
+    json_object_set(obj, "time_stamp", json_string(time_str.str().c_str()));
+
+    char host_name[MAX_NAME_LEN];
+    gethostname( host_name, MAX_NAME_LEN );
+    json_object_set(obj, "hostname", json_string(host_name));
+
+    pid_t pid = getpid();
+    std::stringstream pid_str; pid_str << pid;
+    json_object_set(obj, "pid", json_string(pid_str.str().c_str()));
+
+    json_object_set(obj, "action", json_string("END"));
+
+    char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
+    std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
+
+    pn_message_t * message;
+    pn_data_t * body;
+
+    message = pn_message();
+
+    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
+
+    pn_message_set_address(message, address.c_str());
+    body = pn_message_body(message);
+    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
+    pn_messenger_put(messenger, message);
+    pn_messenger_send(messenger, -1);
+    
+    pn_message_free(message);
+
+    free(tmp_buf);
+    json_decref(obj);
+
 
     pn_messenger_stop(messenger);
     pn_messenger_free(messenger);
+
+    if (test_mode) {
+        std::ofstream log_file_ofstream; 
+        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
+        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+        log_file_ofstream.open(log_file, std::ios::app);
+        log_file_ofstream << msg_str << std::endl;
+    }
+
     return SUCCESS();
 }
 
@@ -327,7 +342,6 @@ irods::error exec_rule(
 
     char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
     std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
-    //rodsLog(LOG_NOTICE, "msg=%s", msg.c_str());
 
     pn_message_t * message;
     pn_data_t * body;
@@ -348,6 +362,14 @@ irods::error exec_rule(
 
     free(tmp_buf);
     json_decref(obj);
+
+    if (test_mode) {
+        std::ofstream log_file_ofstream; 
+        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
+        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+        log_file_ofstream.open(log_file, std::ios::app);
+        log_file_ofstream << msg_str << std::endl;
+    }
 
     return err;
 }
