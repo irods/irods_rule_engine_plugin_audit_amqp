@@ -18,6 +18,7 @@
 #include <map>
 #include <iostream>
 #include <fstream>
+#include <mutex>
 
 // =-=-=-=-=-=-=-
 // boost includes
@@ -41,8 +42,11 @@ static std::string audit_amqp_location      = "localhost:5672";
 static std::string audit_amqp_options       = "";
 static std::string log_path_prefix          = "/tmp";
 static bool test_mode                       = false;
+static std::ofstream log_file_ofstream; 
 
 static pn_messenger_t * messenger = nullptr;
+
+static std::mutex  audit_plugin_mutex;
 
 // Insert the key arg into arg_map and storing the number of insertions of arg as the value.
 // The value (number of insertions) is returned.
@@ -59,6 +63,7 @@ int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::
 
 irods::error get_re_configs(
     const std::string& _instance_name ) {
+
     try {
         const auto& rule_engines = irods::get_server_property< const std::vector< boost::any >& >(std::vector<std::string>{ irods::CFG_PLUGIN_CONFIGURATION_KW, irods::PLUGIN_TYPE_RULE_ENGINE } );
         for ( const auto& elem : rule_engines ) {
@@ -66,6 +71,7 @@ irods::error get_re_configs(
             const auto& inst_name = boost::any_cast< const std::string& >( rule_engine.at( irods::CFG_INSTANCE_NAME_KW ) );
             if ( inst_name == _instance_name ) {
                 if ( rule_engine.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
+
                     const auto& plugin_spec_cfg = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( rule_engine.at( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) );
 
                     audit_pep_regex_to_match  = boost::any_cast< std::string >( plugin_spec_cfg.at( "pep_regex_to_match" ) );
@@ -112,6 +118,7 @@ irods::error get_re_configs(
 irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) {
     (void) _u;
 
+    std::lock_guard<std::mutex> lock(audit_plugin_mutex);
 
     irods::error ret = get_re_configs( _instance_name );
     if( !ret.ok() ) {
@@ -120,7 +127,7 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
     messenger = pn_messenger(NULL);
     pn_messenger_start(messenger);
-    //pn_messenger_set_blocking(messenger, false);  // do not block
+    pn_messenger_set_blocking(messenger, false);  // do not block
     
     json_t* obj = json_object();
     if( !obj ) {
@@ -143,6 +150,12 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
     json_object_set(obj, "action", json_string("START"));
 
+    std::string log_file;
+    if (test_mode) {
+        log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
+        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+    }
+
     char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
     std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
 
@@ -163,11 +176,9 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
     free(tmp_buf);
     json_decref(obj);
-    
+
     if (test_mode) {
-        std::ofstream log_file_ofstream; 
-        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
-        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+        //std::ofstream log_file_ofstream; 
         log_file_ofstream.open(log_file);
         log_file_ofstream << msg_str << std::endl;
     }
@@ -176,7 +187,7 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 }
 
 irods::error stop(irods::default_re_ctx& _u,const std::string&) {
-
+ 
     json_t* obj = json_object();
     if( !obj ) {
         return ERROR(SYS_MALLOC_ERR, "json_object() failed");
@@ -198,6 +209,13 @@ irods::error stop(irods::default_re_ctx& _u,const std::string&) {
 
     json_object_set(obj, "action", json_string("END"));
 
+    std::string log_file;
+    if (test_mode) {
+        log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
+        json_object_set(obj, "log_file", json_string(log_file.c_str()));
+
+    }
+
     char* tmp_buf = json_dumps( obj, JSON_INDENT( 0 ) );
     std::string msg_str = std::string("__BEGIN_JSON__") + std::string(tmp_buf) + std::string("__END_JSON__");
 
@@ -219,22 +237,25 @@ irods::error stop(irods::default_re_ctx& _u,const std::string&) {
     free(tmp_buf);
     json_decref(obj);
 
-
     pn_messenger_stop(messenger);
     pn_messenger_free(messenger);
 
     if (test_mode) {
-        std::ofstream log_file_ofstream; 
-        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
-        json_object_set(obj, "log_file", json_string(log_file.c_str()));
-        log_file_ofstream.open(log_file, std::ios::app);
-        log_file_ofstream << msg_str << std::endl;
+        if (!log_file_ofstream.is_open()) {
+            std::ofstream of; 
+            of.open(log_file, std::ios::app);
+            of << msg_str << std::endl;
+        } else {
+            log_file_ofstream << msg_str << std::endl;
+            log_file_ofstream.close();
+        }
     }
 
     return SUCCESS();
 }
 
 irods::error rule_exists(irods::default_re_ctx&, const std::string& _rn, bool& _ret) {
+
     try {
         boost::smatch matches;
         boost::regex expr( audit_pep_regex_to_match );
@@ -260,7 +281,10 @@ irods::error exec_rule(
     std::list<boost::any>& _ps,
     irods::callback        _eff_hdlr) {
 
+    std::lock_guard<std::mutex> lock(audit_plugin_mutex);
+
     using namespace std::chrono;
+
 
     // stores a counter of unique arg types
     std::map<std::string, int> arg_type_map;
@@ -333,7 +357,7 @@ irods::error exec_rule(
                 obj,
                 key.c_str(),
                 json_string(elem.second.c_str()));
-           
+
             ++ctr; 
             ctr_str.clear();
 
@@ -363,11 +387,11 @@ irods::error exec_rule(
     free(tmp_buf);
     json_decref(obj);
 
+
     if (test_mode) {
-        std::ofstream log_file_ofstream; 
-        std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
-        json_object_set(obj, "log_file", json_string(log_file.c_str()));
-        log_file_ofstream.open(log_file, std::ios::app);
+        //std::ofstream log_file_ofstream; 
+        //std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
+        //log_file_ofstream.open(log_file, std::ios::app);
         log_file_ofstream << msg_str << std::endl;
     }
 
