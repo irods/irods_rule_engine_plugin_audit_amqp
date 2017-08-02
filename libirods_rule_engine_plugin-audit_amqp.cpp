@@ -186,8 +186,10 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
     return SUCCESS();
 }
 
-irods::error stop(irods::default_re_ctx& _u,const std::string&) {
- 
+irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
+
+    std::lock_guard<std::mutex> lock(audit_plugin_mutex);
+
     json_t* obj = json_object();
     if( !obj ) {
         return ERROR(SYS_MALLOC_ERR, "json_object() failed");
@@ -223,15 +225,15 @@ irods::error stop(irods::default_re_ctx& _u,const std::string&) {
     pn_data_t * body;
 
     message = pn_message();
-
     std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
     pn_message_set_address(message, address.c_str());
+
     body = pn_message_body(message);
+
     pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
     pn_messenger_put(messenger, message);
     pn_messenger_send(messenger, -1);
-    
+   
     pn_message_free(message);
 
     free(tmp_buf);
@@ -241,14 +243,8 @@ irods::error stop(irods::default_re_ctx& _u,const std::string&) {
     pn_messenger_free(messenger);
 
     if (test_mode) {
-        if (!log_file_ofstream.is_open()) {
-            std::ofstream of; 
-            of.open(log_file, std::ios::app);
-            of << msg_str << std::endl;
-        } else {
-            log_file_ofstream << msg_str << std::endl;
-            log_file_ofstream.close();
-        }
+        log_file_ofstream << msg_str << std::endl;
+        log_file_ofstream.close();
     }
 
     return SUCCESS();
@@ -378,20 +374,14 @@ irods::error exec_rule(
     body = pn_message_body(message);
     pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
     pn_messenger_put(messenger, message);
-    //rodsLog(LOG_NOTICE, "pn_messenger_put errno = %i", pn_messenger_errno(messenger));
     pn_messenger_send(messenger, -1);
-    //rodsLog(LOG_NOTICE, "pn_messenger_send errno = %i", pn_messenger_errno(messenger));
     
     pn_message_free(message);
 
     free(tmp_buf);
     json_decref(obj);
 
-
     if (test_mode) {
-        //std::ofstream log_file_ofstream; 
-        //std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid); 
-        //log_file_ofstream.open(log_file, std::ios::app);
         log_file_ofstream << msg_str << std::endl;
     }
 

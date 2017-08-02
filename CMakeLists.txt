@@ -170,7 +170,7 @@ set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_SOURCE_DIR}/packaging/postinst")
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 
 set(CPACK_DEBIAN_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6, qpid-client, irods-externals-qpid-with-proton0.34-0")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6, irods-externals-qpid-with-proton0.34-0")
 
 set(CPACK_RPM_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
 if (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos" OR IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos linux")
