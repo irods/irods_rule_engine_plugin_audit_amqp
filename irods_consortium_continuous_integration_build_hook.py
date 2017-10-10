@@ -13,6 +13,7 @@ def install_cmake_and_add_to_front_of_path():
     irods_python_ci_utilities.install_os_packages(['irods-externals-cmake3.5.2-0'])
     os.environ['PATH'] = '/opt/irods-externals/cmake3.5.2-0/bin' + os.pathsep + os.environ['PATH']
 
+
 def get_build_prerequisites_all():
     return ['irods-externals-clang3.8-0',
             'irods-externals-cppzmq4.1-0',
@@ -24,11 +25,14 @@ def get_build_prerequisites_all():
             'irods-externals-zeromq4-14.1.3-0',
             'irods-externals-qpid-with-proton0.34-0']
 
+
 def get_build_prerequisites_apt():
     return ['libcurl4-gnutls-dev', 'make', 'libssl-dev', 'gcc'] + get_build_prerequisites_all()
 
+
 def get_build_prerequisites_yum():
     return ['curl-devel', 'openssl-devel'] + get_build_prerequisites_all()
+
 
 def get_build_prerequisites():
     dispatch_map = {
@@ -42,6 +46,7 @@ def get_build_prerequisites():
     except KeyError:
         irods_python_ci_utilities.raise_not_implemented_for_distribution()
 
+
 def install_build_prerequisites_apt():
     if irods_python_ci_utilities.get_distribution() == 'Ubuntu': # cmake from externals requires newer libstdc++ on ub12
         if irods_python_ci_utilities.get_distribution_version_major() == '12':
@@ -50,8 +55,10 @@ def install_build_prerequisites_apt():
             irods_python_ci_utilities.install_os_packages(['libstdc++6'])
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
 
+
 def install_build_prerequisites_yum():
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
+
 
 def install_build_prerequisites():
     dispatch_map = {
@@ -65,6 +72,7 @@ def install_build_prerequisites():
     except KeyError:
         irods_python_ci_utilities.raise_not_implemented_for_distribution()
 
+
 def install_irods_dev_and_runtime_packages(irods_packages_root_directory):
     irods_packages_directory = irods_python_ci_utilities.append_os_specific_directory(irods_packages_root_directory)
     dev_package_basename = filter(lambda x:'irods-dev' in x, os.listdir(irods_packages_directory))[0]
@@ -74,11 +82,13 @@ def install_irods_dev_and_runtime_packages(irods_packages_root_directory):
     runtime_package = os.path.join(irods_packages_directory, runtime_package_basename)
     irods_python_ci_utilities.install_os_packages_from_files([runtime_package])
 
+
 def copy_output_packages(build_directory, output_root_directory):
     irods_python_ci_utilities.gather_files_satisfying_predicate(
         build_directory,
         irods_python_ci_utilities.append_os_specific_directory(output_root_directory),
         lambda s:s.endswith(irods_python_ci_utilities.get_package_suffix()))
+
 
 def main(output_root_directory, irods_packages_root_directory):
     irods_python_ci_utilities.install_irods_core_dev_repository()
@@ -91,6 +101,7 @@ def main(output_root_directory, irods_packages_root_directory):
     irods_python_ci_utilities.subprocess_get_output(['make', '-j', str(multiprocessing.cpu_count()), 'package'], check_rc=True, cwd=build_directory)
     if output_root_directory:
         copy_output_packages(build_directory, output_root_directory)
+
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()

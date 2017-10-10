@@ -5,6 +5,7 @@ import os
 import shutil
 import glob
 import time
+import subprocess
 
 import irods_python_ci_utilities
 
@@ -56,6 +57,28 @@ def install_build_prerequisites():
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
 
 
+def install_qpid_proton():
+    irods_python_ci_utilities.subprocess_get_output(['wget', 'http://mirror.cc.columbia.edu/pub/software/apache/qpid/proton/0.17.0/qpid-proton-0.17.0.tar.gz'])
+    irods_python_ci_utilities.subprocess_get_output(['tar', 'xf', 'qpid-proton-0.17.0.tar.gz'])
+    if irods_python_ci_utilities.get_distribution() == 'Ubuntu':
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'gcc', 'cmake', 'cmake-curses-gui', 'uuid-dev', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libssl-dev', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libsasl2-2' ,'libsasl2-dev', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'swig', 'python-dev', 'ruby-dev', 'libperl-dev', '-y'])
+    else:
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'gcc', 'make', 'cmake', 'libuuid-devel', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'openssl-devel', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'cyrus-sasl-devel', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'swig', 'python-devel', 'ruby-devel', 'rubygem-minitest', 'php-devel', 'perl-devel', '-y'])
+
+    qpid_proton_build_dir = os.getcwd() + '/qpid-proton-0.17.0/build'
+    if not os.path.exists(qpid_proton_build_dir):
+        os.makedirs(qpid_proton_build_dir)
+        os.chdir(qpid_proton_build_dir)
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'cmake', '..', '-DCMAKE_INSTALL_PREFIX=/usr', '-DSYSINSTALL_BINDINGS=ON'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'make', 'install'])
+
+
 def install_messaging_package(message_broker):
     if 'apache-activemq-' in message_broker:
         version_number = message_broker.split('-')[2]
@@ -67,6 +90,31 @@ def install_messaging_package(message_broker):
         irods_python_ci_utilities.subprocess_get_output(['tar', 'xvfz', tarfile])
         irods_python_ci_utilities.subprocess_get_output([activemq_dir, 'start'])
 
+    if 'rabbitmq' in message_broker:
+        if irods_python_ci_utilities.get_distribution() == 'Ubuntu':
+            irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.deb.sh | sudo bash', shell=True)
+            irods_python_ci_utilities.subprocess_get_output(['wget', 'https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb'])
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'dpkg', '-i', 'erlang-solutions_1.0_all.deb'])
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'update', '-y'])
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang=1:19.3.6', '-y'])
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'rabbitmq-server', '-y'])
+            #irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_stomp'])
+            #this can be deleted after we figure out rabbitmq
+            #irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_management'])
+
+        if irods_python_ci_utilities.get_distribution() == 'Centos' or irods_python_ci_utilities.get_distribution() == 'Centos linux':
+            irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash', shell=True)
+            irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | sudo bash', shell=True)
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'erlang', '-y'])
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'rabbitmq-server', '-y'])
+            if irods_python_ci_utilities.get_distribution_version_major() == '6':
+                irods_python_ci_utilities.subprocess_get_output(['sudo', 'update-rc.d', 'rabbitmq-server', 'defaults'])
+            else:
+                irods_python_ci_utilities.subprocess_get_output(['sudo','systemctl', 'enable', 'rabbitmq-server'])
+
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'service', 'rabbitmq-server', 'start'])
+
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_amqp1_0'])
 
 
 def main():
@@ -85,12 +133,13 @@ def main():
 
     install_build_prerequisites()
     install_messaging_package(options.message_broker)
+    install_qpid_proton()
 
     time.sleep(10)
 
     try:
         test_output_file = 'log/test_output.log'
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_plugin_audit_amqp 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_audit_plugin 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
     finally:
         if output_root_directory:
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
