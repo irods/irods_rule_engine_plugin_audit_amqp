@@ -121,7 +121,35 @@ install(
 
 install(
   FILES
+  ${CMAKE_SOURCE_DIR}/packaging/test_audit_plugin.py
+  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
+
+install(
+  FILES
   ${CMAKE_SOURCE_DIR}/packaging/test_plugin_audit_amqp_server_config.json
+  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
+
+install(
+  FILES
+  ${CMAKE_SOURCE_DIR}/packaging/audit_plugin_message_worker.py
+  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
+
+install(
+  FILES
+  ${CMAKE_SOURCE_DIR}/packaging/message_broker_consumer.py
+  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
+
+install(
+  FILES
+  ${CMAKE_SOURCE_DIR}/packaging/queue_listener.py
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
@@ -132,8 +160,6 @@ install(
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
-
-
 
 
 
