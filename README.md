@@ -4,7 +4,7 @@ This C++ plugin provides the iRODS platform a rule engine that emits a single AM
 
 # Build
 
-Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.1 (http://github.com/irods/irods).
+Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.2 (http://github.com/irods/irods).
 
 This plugin requires the iRODS development and runtime packages to be installed on the build machine.
 
