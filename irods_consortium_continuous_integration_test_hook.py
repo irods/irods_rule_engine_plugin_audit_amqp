@@ -5,8 +5,7 @@ import os
 import shutil
 import glob
 import time
-import subprocess
-
+import tempfile
 import irods_python_ci_utilities
 
 
@@ -44,7 +43,6 @@ def get_build_prerequisites():
 
 
 def install_build_prerequisites():
-    irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'stomp.py==4.1.17'])
     irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'unittest-xml-reporting==1.14.0'])
 
     if irods_python_ci_utilities.get_distribution() == 'Ubuntu': # cmake from externals requires newer libstdc++ on ub12
@@ -58,12 +56,13 @@ def install_build_prerequisites():
 
 
 def install_qpid_proton():
-    irods_python_ci_utilities.subprocess_get_output(['wget', 'http://mirror.cc.columbia.edu/pub/software/apache/qpid/proton/0.17.0/qpid-proton-0.17.0.tar.gz'])
-    irods_python_ci_utilities.subprocess_get_output(['tar', 'xf', 'qpid-proton-0.17.0.tar.gz'])
+    local_qpid_proton_dir = tempfile.mkdtemp(prefix='qpid_proton_dir')
+    irods_python_ci_utilities.git_clone('https://github.com/apache/qpid-proton.git', '0.17.0', local_qpid_proton_dir)
+
     if irods_python_ci_utilities.get_distribution() == 'Ubuntu':
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'gcc', 'cmake', 'cmake-curses-gui', 'uuid-dev', '-y'])
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libssl-dev', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libsasl2-2' ,'libsasl2-dev', '-y'])
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libsasl2-2','libsasl2-dev', '-y'])
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'swig', 'python-dev', 'ruby-dev', 'libperl-dev', '-y'])
     else:
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'gcc', 'make', 'cmake', 'libuuid-devel', '-y'])
@@ -71,7 +70,7 @@ def install_qpid_proton():
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'cyrus-sasl-devel', '-y'])
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'swig', 'python-devel', 'ruby-devel', 'rubygem-minitest', 'php-devel', 'perl-devel', '-y'])
 
-    qpid_proton_build_dir = os.getcwd() + '/qpid-proton-0.17.0/build'
+    qpid_proton_build_dir = local_qpid_proton_dir + '/build'
     if not os.path.exists(qpid_proton_build_dir):
         os.makedirs(qpid_proton_build_dir)
         os.chdir(qpid_proton_build_dir)
@@ -98,9 +97,6 @@ def install_messaging_package(message_broker):
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'update', '-y'])
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang=1:19.3.6', '-y'])
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'rabbitmq-server', '-y'])
-            #irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_stomp'])
-            #this can be deleted after we figure out rabbitmq
-            #irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_management'])
 
         if irods_python_ci_utilities.get_distribution() == 'Centos' or irods_python_ci_utilities.get_distribution() == 'Centos linux':
             irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash', shell=True)
@@ -110,7 +106,7 @@ def install_messaging_package(message_broker):
             if irods_python_ci_utilities.get_distribution_version_major() == '6':
                 irods_python_ci_utilities.subprocess_get_output(['sudo', 'update-rc.d', 'rabbitmq-server', 'defaults'])
             else:
-                irods_python_ci_utilities.subprocess_get_output(['sudo','systemctl', 'enable', 'rabbitmq-server'])
+                irods_python_ci_utilities.subprocess_get_output(['sudo', 'systemctl', 'enable', 'rabbitmq-server'])
 
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'service', 'rabbitmq-server', 'start'])
 
@@ -144,7 +140,6 @@ def main():
         if output_root_directory:
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
             shutil.copy('/var/lib/irods/log/test_output.log', output_root_directory)
-            shutil.copytree('/var/lib/irods/test-reports', os.path.join(output_root_directory, 'test-reports'))
 
 
 if __name__ == '__main__':
