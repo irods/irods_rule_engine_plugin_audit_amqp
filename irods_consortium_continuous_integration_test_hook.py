@@ -136,6 +136,7 @@ def main():
     try:
         test_output_file = 'log/test_output.log'
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_audit_plugin 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_resource_types.Test_Resource_Unixfilesystem 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
     finally:
         if output_root_directory:
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
