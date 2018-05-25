@@ -128,13 +128,6 @@ install(
 
 install(
   FILES
-  ${CMAKE_SOURCE_DIR}/packaging/test_plugin_audit_amqp_server_config.json
-  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
-  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  )
-
-install(
-  FILES
   ${CMAKE_SOURCE_DIR}/packaging/audit_plugin_message_worker.py
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
@@ -161,6 +154,10 @@ install(
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
 
+install(
+  FILES ${CMAKE_SOURCE_DIR}/add_audit_rule_engine_to_rule_engines.py
+  DESTINATION var/lib/irods/scripts
+  )
 
 
 set(CPACK_PACKAGE_FILE_NAME "irods-rule-engine-plugin-audit-amqp-${IRODS_VERSION}-${IRODS_LINUX_DISTRIBUTION_NAME}${IRODS_LINUX_DISTRIBUTION_VERSION_MAJOR}-${CMAKE_SYSTEM_PROCESSOR}")
