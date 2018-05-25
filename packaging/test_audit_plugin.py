@@ -17,7 +17,6 @@ else:
 
 class TestAuditPlugin(unittest.TestCase):
     def setUp(self):
-        shutil.copy('/var/lib/irods/scripts/irods/test/test_plugin_audit_amqp_server_config.json', '/etc/irods/server_config.json')
 
         # Create a test file
         self.largetestfile = "largefile.txt"
@@ -40,7 +39,7 @@ class TestAuditPlugin(unittest.TestCase):
     def tearDown(self):
         filepath = os.path.abspath(self.largetestfile)
         if os.path.exists(filepath):
-            os.unlink(filepath)       
+            os.unlink(filepath)
 
     def test_audit_plugin(self):
         filename = self.largetestfile
