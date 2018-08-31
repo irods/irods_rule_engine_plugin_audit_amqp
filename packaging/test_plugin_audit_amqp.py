@@ -48,10 +48,6 @@ class TestListener(stomp.ConnectionListener):
 
 class TestAuditPlugin(unittest.TestCase):
     def setUp(self):
-
-        subprocess.Popen(['cp', '/var/lib/irods/scripts/irods/test/test_plugin_audit_amqp_server_config.json', '/etc/irods/server_config.json'])
-        time.sleep(3);
-
         # create a test file
         subprocess.call(['dd', 'if=/dev/zero', 'of=testfile.dat', 'bs=1M', 'count=1'])
 
@@ -65,7 +61,7 @@ class TestAuditPlugin(unittest.TestCase):
         conn.disconnect()
 
     def tearDown(self):
-        subprocess.call(['rm', 'testfile.dat']) 
+        subprocess.call(['rm', 'testfile.dat'])
 
     def test_put(self):
         self.purge_queue()
