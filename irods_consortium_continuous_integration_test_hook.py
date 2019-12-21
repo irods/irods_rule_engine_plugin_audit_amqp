@@ -99,6 +99,7 @@ def install_messaging_package(message_broker):
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'rabbitmq-server', '-y'])
 
         if irods_python_ci_utilities.get_distribution() == 'Centos' or irods_python_ci_utilities.get_distribution() == 'Centos linux':
+            irods_python_ci_utilities.subprocess_get_output(['sudo', 'rpm', '--rebuilddb'])
             irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash', shell=True)
             irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | sudo bash', shell=True)
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'erlang', '-y'])
