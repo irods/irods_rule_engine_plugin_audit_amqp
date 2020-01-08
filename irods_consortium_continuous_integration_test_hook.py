@@ -43,8 +43,6 @@ def get_build_prerequisites():
 
 
 def install_build_prerequisites():
-    irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'unittest-xml-reporting==1.14.0'])
-
     if irods_python_ci_utilities.get_distribution() == 'Ubuntu': # cmake from externals requires newer libstdc++ on ub12
         if irods_python_ci_utilities.get_distribution_version_major() == '12':
             irods_python_ci_utilities.install_os_packages(['python-software-properties'])
@@ -53,29 +51,6 @@ def install_build_prerequisites():
             irods_python_ci_utilities.install_os_packages(['libstdc++6'])
 
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
-
-
-def install_qpid_proton():
-    local_qpid_proton_dir = tempfile.mkdtemp(prefix='qpid_proton_dir')
-    irods_python_ci_utilities.git_clone('https://github.com/apache/qpid-proton.git', '0.17.0', local_qpid_proton_dir)
-
-    if irods_python_ci_utilities.get_distribution() == 'Ubuntu':
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'gcc', 'cmake', 'cmake-curses-gui', 'uuid-dev', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libssl-dev', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'libsasl2-2','libsasl2-dev', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'swig', 'python-dev', 'ruby-dev', 'libperl-dev', '-y'])
-    else:
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'gcc', 'make', 'cmake', 'libuuid-devel', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'openssl-devel', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'cyrus-sasl-devel', '-y'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'yum', 'install', 'swig', 'python-devel', 'ruby-devel', 'rubygem-minitest', 'php-devel', 'perl-devel', '-y'])
-
-    qpid_proton_build_dir = local_qpid_proton_dir + '/build'
-    if not os.path.exists(qpid_proton_build_dir):
-        os.makedirs(qpid_proton_build_dir)
-        os.chdir(qpid_proton_build_dir)
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'cmake', '..', '-DCMAKE_INSTALL_PREFIX=/usr', '-DSYSINSTALL_BINDINGS=ON'])
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'make', 'install'])
 
 
 def install_messaging_package(message_broker):
@@ -125,25 +100,29 @@ def main():
     package_suffix = irods_python_ci_utilities.get_package_suffix()
     os_specific_directory = irods_python_ci_utilities.append_os_specific_directory(built_packages_root_directory)
 
-    irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
-    irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/add_audit_rule_engine_to_rule_engines.py'], check_rc=True)
-
     install_build_prerequisites()
-    install_qpid_proton()
+    irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'unittest-xml-reporting==1.14.0', 'python-qpid-proton==0.30.0'])
     install_messaging_package(options.message_broker)
+
+    irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
+    irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python scripts/add_audit_rule_engine_to_rule_engines.py'], check_rc=True)
 
     time.sleep(10)
 
+    test_audit_log = 'log/test_audit_plugin.log'
+    test_output_file = 'log/test_output.log'
     try:
-        test_audit_log = 'log/test_audit_plugin.log'
-        test_output_file = 'log/test_output.log'
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_audit_plugin 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_audit_log)], check_rc=True)
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_resource_types.Test_Resource_Unixfilesystem 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
     finally:
         if output_root_directory:
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
-            shutil.copy('/var/lib/irods/log/test_output.log', output_root_directory)
-            shutil.copy('/var/lib/irods/log/test_audit_plugin.log', output_root_directory)
+            test_output_file = os.path.join('/var/lib/irods', test_output_file)
+            if os.path.exists(test_output_file):
+                shutil.copy(test_output_file, output_root_directory)
+            test_audit_log = os.path.join('/var/lib/irods', test_audit_log)
+            if os.path.exists(test_audit_log):
+                shutil.copy(test_audit_log, output_root_directory)
 
 
 if __name__ == '__main__':
