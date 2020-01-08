@@ -4,7 +4,7 @@ from irods.configuration import IrodsConfig
 
 def main():
     irods_config = IrodsConfig()
-    irods_config.server_config['plugin_configuration']['rule_engines'].insert(1,
+    irods_config.server_config['plugin_configuration']['rule_engines'].insert(0,
             {
                 "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
