@@ -96,12 +96,12 @@ def main():
     package_suffix = irods_python_ci_utilities.get_package_suffix()
     os_specific_directory = irods_python_ci_utilities.append_os_specific_directory(built_packages_root_directory)
 
-    irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
-    irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/add_audit_rule_engine_to_rule_engines.py'], check_rc=True)
-
     install_build_prerequisites()
     irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'unittest-xml-reporting==1.14.0', 'python-qpid-proton==0.30.0'])
     install_messaging_package(options.message_broker)
+
+    irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
+    irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python scripts/add_audit_rule_engine_to_rule_engines.py'], check_rc=True)
 
     time.sleep(10)
 
