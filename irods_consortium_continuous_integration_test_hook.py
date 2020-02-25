@@ -90,7 +90,7 @@ def main():
     parser.add_option('--message_broker', default='apache-activemq-5.14.1', help='MQ server package name that needs to be tested')
     options, _ = parser.parse_args()
 
-    output_root_directory = options.output_root_directory
+    output_root_directory = os.path.join(options.output_root_directory, options.message_broker)
     built_packages_root_directory = options.built_packages_root_directory
     package_suffix = irods_python_ci_utilities.get_package_suffix()
     os_specific_directory = irods_python_ci_utilities.append_os_specific_directory(built_packages_root_directory)
