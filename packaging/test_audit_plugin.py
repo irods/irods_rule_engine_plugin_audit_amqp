@@ -79,6 +79,6 @@ OUTPUT ruleExecOut
 
         try:
             with session.make_session_for_existing_admin() as admin_session:
-                admin_session.assert_icommand(['irule', '-F', rule_file], 'STDERR', 'SYS_NOT_SUPPORTED')
+                admin_session.assert_icommand(['irule', '-r', 'irods_rule_engine_plugin-audit_amqp-instance', '-F', rule_file], 'STDERR', 'SYS_NOT_SUPPORTED')
         finally:
             os.unlink(rule_file)
