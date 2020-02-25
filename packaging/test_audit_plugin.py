@@ -62,3 +62,23 @@ class TestAuditPlugin(unittest.TestCase):
             result = result_queue.get()
             self.assertEqual(result, 'passed')
 
+    def test_delayed_rule_with_plugin_configured(self):
+        rule_file="test_audit_plugin_delayed_rule.r"
+        rule_string= '''
+test_audit_plugin_delayed_rule {
+    delay("<PLUSET>1s</PLUSET>") {
+        i = 0;
+    }
+}
+INPUT null
+OUTPUT ruleExecOut
+'''
+
+        with open(rule_file, 'w') as f:
+            f.write(rule_string)
+
+        try:
+            with session.make_session_for_existing_admin() as admin_session:
+                admin_session.assert_icommand(['irule', '-r', 'irods_rule_engine_plugin-audit_amqp-instance', '-F', rule_file], 'STDERR', 'SYS_NOT_SUPPORTED')
+        finally:
+            os.unlink(rule_file)
