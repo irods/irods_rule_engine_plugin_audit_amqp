@@ -10,24 +10,22 @@ import irods_python_ci_utilities
 
 
 def get_build_prerequisites_all():
-    return[]
-
+    return['gcc', 'swig']
 
 def get_build_prerequisites_apt():
+    pre_reqs = ['uuid-dev', 'libssl-dev', 'libsasl2-2', 'libsasl2-dev', 'python-dev']
     if irods_python_ci_utilities.get_distribution_version_major() == '12':
-        return['openjdk-7-jre']+get_build_prerequisites_all()
-
+        pre_reqs = pre_reqs+['openjdk-7-jre']
     else:
-        return['default-jre']+get_build_prerequisites_all()
-
+        pre_reqs = pre_reqs+['default-jre']
+    
+    return get_build_prerequisites_all()+pre_reqs
 
 def get_build_prerequisites_yum():
-    return['java-1.7.0-openjdk-devel']+get_build_prerequisites_all()
-
+    return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python-devel']
 
 def get_build_prerequisites_zypper():
-    return['java-1.7.0-openjdk-devel']+get_build_prerequisites_all()
-
+    return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel']
 
 def get_build_prerequisites():
     dispatch_map = {
@@ -41,7 +39,6 @@ def get_build_prerequisites():
     except KeyError:
         irods_python_ci_utilities.raise_not_implemented_for_distribution()
 
-
 def install_build_prerequisites():
     if irods_python_ci_utilities.get_distribution() == 'Ubuntu': # cmake from externals requires newer libstdc++ on ub12
         if irods_python_ci_utilities.get_distribution_version_major() == '12':
@@ -51,7 +48,6 @@ def install_build_prerequisites():
             irods_python_ci_utilities.install_os_packages(['libstdc++6'])
 
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
-
 
 def install_messaging_package(message_broker):
     if 'apache-activemq-' in message_broker:
@@ -87,7 +83,6 @@ def install_messaging_package(message_broker):
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'service', 'rabbitmq-server', 'start'])
 
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'rabbitmq-plugins', 'enable', 'rabbitmq_amqp1_0'])
-
 
 def main():
     parser = optparse.OptionParser()
