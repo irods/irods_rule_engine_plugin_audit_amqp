@@ -21,10 +21,12 @@ def install_building_dependencies(externals_directory):
                       'irods-externals-clang-runtime6.0-0',
                       'irods-externals-clang6.0-0',
                       'irods-externals-cppzmq4.2.3-0',
+                      'irods-externals-fmt6.1.2-1',
                       'irods-externals-json3.7.3-0',
                       'irods-externals-jansson2.7-0',
                       'irods-externals-libarchive3.3.2-1',
-                      'irods-externals-qpid-with-proton0.34-1',
+                      'irods-externals-nanodbc2.13.0-0',
+                      'irods-externals-qpid-with-proton0.34-2',
                       'irods-externals-zeromq4-14.1.6-0']
     if externals_directory == 'None' or externals_directory is None:
         irods_python_ci_utilities.install_irods_core_dev_repository()
