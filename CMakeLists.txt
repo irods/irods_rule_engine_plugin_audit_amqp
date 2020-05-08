@@ -35,7 +35,7 @@ macro(IRODS_MACRO_SET_AND_CHECK_DEPENDENCY_FULL_PATH DEPENDENCY_NAME DEPENDENCY_
 endmacro()
 
 IRODS_MACRO_SET_AND_CHECK_DEPENDENCY_FULL_PATH(JANSSON jansson2.7-0)
-IRODS_MACRO_SET_AND_CHECK_DEPENDENCY_FULL_PATH(QPID qpid-with-proton0.34-1)
+IRODS_MACRO_SET_AND_CHECK_DEPENDENCY_FULL_PATH(QPID qpid-with-proton0.34-2)
 
 set(CMAKE_COMPILE_COMMANDS TRUE)
 
@@ -159,13 +159,13 @@ set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_SOURCE_DIR}/packaging/postinst")
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 
 set(CPACK_DEBIAN_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6, irods-externals-qpid-with-proton0.34-1, irods-externals-jansson2.7-0")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION}), libc6, irods-externals-qpid-with-proton0.34-2, irods-externals-jansson2.7-0")
 
 set(CPACK_RPM_PACKAGE_NAME "irods-rule-engine-plugin-audit-amqp")
 if (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos" OR IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "centos linux")
-  set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}, openssl, irods-externals-qpid-with-proton0.34-1, irods-externals-jansson2.7-0")
+  set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}, openssl, irods-externals-qpid-with-proton0.34-2, irods-externals-jansson2.7-0")
 elseif (IRODS_LINUX_DISTRIBUTION_NAME STREQUAL "opensuse")
-  set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}, libopenssl1_0_0, irods-externals-qpid-with-proton0.34-1, irods-externals-jansson2.7-0")
+  set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}, libopenssl1_0_0, irods-externals-qpid-with-proton0.34-2, irods-externals-jansson2.7-0")
 endif()
 
 
