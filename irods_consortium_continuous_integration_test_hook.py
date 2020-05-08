@@ -13,13 +13,7 @@ def get_build_prerequisites_all():
     return['gcc', 'swig']
 
 def get_build_prerequisites_apt():
-    pre_reqs = ['uuid-dev', 'libssl-dev', 'libsasl2-2', 'libsasl2-dev', 'python-dev']
-    if irods_python_ci_utilities.get_distribution_version_major() == '12':
-        pre_reqs = pre_reqs+['openjdk-7-jre']
-    else:
-        pre_reqs = pre_reqs+['default-jre']
-    
-    return get_build_prerequisites_all()+pre_reqs
+    return get_build_prerequisites_all()+['default-jre','uuid-dev', 'libssl-dev', 'libsasl2-2', 'libsasl2-dev', 'python-dev']
 
 def get_build_prerequisites_yum():
     return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python-devel']
@@ -40,13 +34,6 @@ def get_build_prerequisites():
         irods_python_ci_utilities.raise_not_implemented_for_distribution()
 
 def install_build_prerequisites():
-    if irods_python_ci_utilities.get_distribution() == 'Ubuntu': # cmake from externals requires newer libstdc++ on ub12
-        if irods_python_ci_utilities.get_distribution_version_major() == '12':
-            irods_python_ci_utilities.install_os_packages(['python-software-properties'])
-            irods_python_ci_utilities.subprocess_get_output(['sudo', 'add-apt-repository', '-y', 'ppa:ubuntu-toolchain-r/test'], check_rc=True)
-            irods_python_ci_utilities.subprocess_get_output(['sudo', 'update-java-alternatives', '--set', 'java-1.7.0-openjdk-amd64'])
-            irods_python_ci_utilities.install_os_packages(['libstdc++6'])
-
     irods_python_ci_utilities.install_os_packages(get_build_prerequisites())
 
 def install_messaging_package(message_broker):
@@ -66,7 +53,10 @@ def install_messaging_package(message_broker):
             irods_python_ci_utilities.subprocess_get_output(['wget', 'https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb'])
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'dpkg', '-i', 'erlang-solutions_1.0_all.deb'])
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'update', '-y'])
-            irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang=1:19.3.6', '-y'])
+            if irods_python_ci_utilities.get_distribution_version_major() == '18':
+                irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang', '-y'])
+            else:
+                irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang=1:19.3.6', '-y'])
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'rabbitmq-server', '-y'])
 
         if irods_python_ci_utilities.get_distribution() == 'Centos' or irods_python_ci_utilities.get_distribution() == 'Centos linux':
