@@ -73,9 +73,6 @@ target_link_libraries(
   irods_server
   irods_common
   ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidclient.so
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidcommon.so
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpidmessaging.so
   ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton.so
   ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
