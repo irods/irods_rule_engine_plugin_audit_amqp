@@ -327,6 +327,15 @@ irods::error exec_rule(
         json_string(_rn.c_str()));
 
     for( auto itr : _ps ) {
+        // The BytesBuf parameter should not be serialized because this commonly contains
+        // the entirety of the contents of files. These could be very big and cause the
+        // message broker to explode.
+        if (std::type_index(typeid(BytesBuf*)) == std::type_index(itr.type())) {
+            rodsLog(LOG_DEBUG9, "[{}:{}] - skipping serialization of BytesBuf parameter",
+                __FILE__, __LINE__);
+            continue;
+        }
+
         // serialize the parameter to a map
         irods::re_serialization::serialized_parameter_t param;
         irods::error ret = irods::re_serialization::serialize_parameter(itr, param);
