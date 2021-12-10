@@ -39,6 +39,8 @@ include(${IRODS_TARGETS_PATH})
 include(GNUInstallDirs)
 include(UseLibCXX)
 
+find_package(nlohmann_json "3.6.1" REQUIRED)
+
 add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
 target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS})
@@ -50,7 +52,6 @@ target_include_directories(
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_FMT}/include
   ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
-  ${IRODS_EXTERNALS_FULLPATH_JSON}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID}/include
   )
 
