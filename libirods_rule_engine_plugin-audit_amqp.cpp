@@ -71,20 +71,20 @@ irods::error get_re_configs(
             if ( inst_name == _instance_name ) {
                 if ( rule_engine.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
 
-                    const auto& plugin_spec_cfg = boost::any_cast< const std::unordered_map< std::string, boost::any >& >( rule_engine.at( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) );
+                    const auto& plugin_spec_cfg = rule_engine.at(irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW);
 
-                    audit_pep_regex_to_match  = boost::any_cast< std::string >( plugin_spec_cfg.at( "pep_regex_to_match" ) );
-                    audit_amqp_topic          = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_topic" ) );
-                    audit_amqp_location       = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_location" ) );
-                    audit_amqp_options        = boost::any_cast< std::string >( plugin_spec_cfg.at( "amqp_options" ) );
+                    audit_pep_regex_to_match  = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
+                    audit_amqp_topic          = plugin_spec_cfg.at("amqp_topic").get<std::string>();
+                    audit_amqp_location       = plugin_spec_cfg.at("amqp_location").get<std::string>();
+                    audit_amqp_options        = plugin_spec_cfg.at("amqp_options").get<std::string>();
 
                     // look for a test mode setting.  if it doesn't exist just keep test_mode at false.                    
                     // if test_mode = true and log_path_prefix isn't set just leave the default
                     try {
-                        std::string test_mode_str = boost::any_cast< std::string >( plugin_spec_cfg.at( "test_mode" ) );
+                        const std::string& test_mode_str = plugin_spec_cfg.at("test_mode").get_ref<const std::string&>();
                         test_mode = boost::iequals(test_mode_str, "true");
                         if (test_mode) {
-                             log_path_prefix  = boost::any_cast< std::string >( plugin_spec_cfg.at( "log_path_prefix" ) );
+                             log_path_prefix  = plugin_spec_cfg.at("log_path_prefix").get<std::string>();
                         }
                     } catch (const std::out_of_range& e1) {}
  
