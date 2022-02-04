@@ -18,7 +18,7 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections -Wl,-z,combreloc")
 include(IrodsExternals)
 
 IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(JANSSON jansson2.7-0)
-IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(QPID qpid-with-proton0.34-2)
+IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(QPID_PROTON qpid-proton0.36.0-0)
 
 string(REPLACE ";" ", " ${PLUGIN}_PACKAGE_DEPENDENCIES_STRING "${IRODS_PACKAGE_DEPENDENCIES_LIST}")
 unset(IRODS_PACKAGE_DEPENDENCIES_LIST)
@@ -42,6 +42,7 @@ include(UseLibCXX)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
@@ -54,7 +55,7 @@ target_include_directories(
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_FMT}/include
   ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/include
+  ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
 
 target_link_libraries(
@@ -63,8 +64,7 @@ target_link_libraries(
   irods_server
   irods_common
   ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton.so
-  ${IRODS_EXTERNALS_FULLPATH_QPID}/lib/libqpid-proton-cpp.so
+  ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   dl
