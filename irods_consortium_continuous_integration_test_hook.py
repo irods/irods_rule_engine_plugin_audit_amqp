@@ -76,9 +76,9 @@ def install_messaging_package(message_broker):
 
 def main():
     parser = optparse.OptionParser()
-    parser.add_option('--output_root_directory')
-    parser.add_option('--built_packages_root_directory')
-    parser.add_option('--message_broker', default='apache-activemq-5.14.1', help='MQ server package name that needs to be tested')
+    parser.add_option('--output_root_directory', help='Path to the directory where logs and other files are written to.')
+    parser.add_option('--built_packages_root_directory', help='Path to directory containing the audit plugin package.')
+    parser.add_option('--message_broker', default='apache-activemq-5.14.1', help='MQ server package name that needs to be tested.')
     options, _ = parser.parse_args()
 
     output_root_directory = os.path.join(options.output_root_directory, options.message_broker)
@@ -87,7 +87,7 @@ def main():
     os_specific_directory = irods_python_ci_utilities.append_os_specific_directory(built_packages_root_directory)
 
     install_build_prerequisites()
-    irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'pip', 'install', 'unittest-xml-reporting==1.14.0', 'python-qpid-proton==0.30.0'])
+    irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'python3', '-m', 'pip', 'install', 'unittest-xml-reporting==1.14.0', 'python-qpid-proton==0.36.0'])
     install_messaging_package(options.message_broker)
 
     irods_python_ci_utilities.install_os_packages_from_files(glob.glob(os.path.join(os_specific_directory, 'irods-rule-engine-plugin-audit-amqp*.{0}'.format(package_suffix))))
@@ -98,11 +98,11 @@ def main():
     test_audit_log = 'log/test_audit_plugin.log'
     test_output_file = 'log/test_output.log'
     try:
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_audit_plugin 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_audit_log)], check_rc=True)
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python2 scripts/run_tests.py --xml_output --run_s=test_resource_types.Test_Resource_Unixfilesystem 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python3 scripts/run_tests.py --run_s=test_audit_plugin 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_audit_log)], check_rc=True)
+        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c', 'python3 scripts/run_tests.py --run_s=test_resource_types.Test_Resource_Unixfilesystem 2>&1 | tee {0}; exit $PIPESTATUS'.format(test_output_file)], check_rc=True)
     finally:
         if output_root_directory:
-            irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
+            irods_python_ci_utilities.gather_files_satisfying_predicate('/var/log/irods', output_root_directory, lambda x: True)
             test_output_file = os.path.join('/var/lib/irods', test_output_file)
             if os.path.exists(test_output_file):
                 shutil.copy(test_output_file, output_root_directory)

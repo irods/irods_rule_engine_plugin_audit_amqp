@@ -2,8 +2,8 @@ from __future__ import print_function
 
 import time
 
-from audit_plugin_message_worker import MessageWorker
-from message_broker_consumer import MessageBrokerConsumer
+from .audit_plugin_message_worker import MessageWorker
+from .message_broker_consumer import MessageBrokerConsumer
 
 from proton.reactor import Container
 
@@ -19,7 +19,7 @@ class QueueListener(object):
 
         timeout = 5
         num_workers = 5
-        for _ in xrange(num_workers):
+        for _ in range(num_workers):
             worker = MessageWorker(self.pid_queue, self.result_queue)
             worker.start()
 
@@ -42,7 +42,7 @@ class QueueListener(object):
         container.run()
 
         #Add poison pill to end the processes
-        for _ in xrange(num_workers):
+        for _ in range(num_workers):
             self.pid_queue.put(None)
 
         self.pid_queue.join()

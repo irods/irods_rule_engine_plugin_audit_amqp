@@ -7,17 +7,16 @@ import shutil
 
 from . import session
 from .. import lib
-from queue_listener import QueueListener
+from .queue_listener import QueueListener
 
 if sys.version_info < (2, 7):
     import unittest2 as unittest
 else:
     import unittest
 
-
 class TestAuditPlugin(unittest.TestCase):
-    def setUp(self):
 
+    def setUp(self):
         # Create a test file
         self.largetestfile = "largefile.txt"
         lib.make_file(self.largetestfile, 64*1024*1024, 'arbitrary')
@@ -63,22 +62,25 @@ class TestAuditPlugin(unittest.TestCase):
             self.assertEqual(result, 'passed')
 
     def test_delayed_rule_with_plugin_configured(self):
-        rule_file="test_audit_plugin_delayed_rule.r"
-        rule_string= '''
-test_audit_plugin_delayed_rule {
-    delay("<PLUSET>1s</PLUSET>") {
-        i = 0;
-    }
-}
+        rep_name = 'irods_rule_engine_plugin-audit_amqp-instance'
+        rule_file = "test_audit_plugin_delayed_rule.r"
+        rule_string = '''
+test_audit_plugin_delayed_rule {{
+    delay("<INST_NAME>{}</INST_NAME><PLUSET>1s</PLUSET>") {{
+        *i = 0;
+    }}
+}}
 INPUT null
 OUTPUT ruleExecOut
-'''
+'''.format(rep_name)
 
         with open(rule_file, 'w') as f:
             f.write(rule_string)
 
         try:
             with session.make_session_for_existing_admin() as admin_session:
-                admin_session.assert_icommand(['irule', '-r', 'irods_rule_engine_plugin-audit_amqp-instance', '-F', rule_file], 'STDERR', 'SYS_NOT_SUPPORTED')
+                admin_session.assert_icommand(['irule', '-r', rep_name, '-F', rule_file], 'STDERR', 'SYS_NOT_SUPPORTED')
+
         finally:
             os.unlink(rule_file)
+
