@@ -1,8 +1,8 @@
 // =-=-=-=-=-=-=-
 // irods includes
-#include "irods_re_plugin.hpp"
-#include "irods_re_serialization.hpp"
-#include "irods_server_properties.hpp"
+#include <irods/irods_re_plugin.hpp>
+#include <irods/irods_re_serialization.hpp>
+#include <irods/irods_server_properties.hpp>
 
 #undef LIST
 
