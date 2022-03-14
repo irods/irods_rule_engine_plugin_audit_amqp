@@ -30,10 +30,10 @@
 
 // =-=-=-=-=-=-=-
 // proton includes
-#include "proton/message.h"
-#include "proton/messenger.h"
+#include <proton/message.h>
+#include <proton/messenger.h>
 
-#include "jansson.h"
+#include <jansson.h>
 
 
 static std::string audit_pep_regex_to_match = "audit_.*";
