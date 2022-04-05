@@ -4,15 +4,12 @@ import sys
 import multiprocessing
 import os
 import shutil
+import unittest
 
 from . import session
 from .. import lib
 from .queue_listener import QueueListener
-
-if sys.version_info < (2, 7):
-    import unittest2 as unittest
-else:
-    import unittest
+from .test_resource_types import Test_Resource_Unixfilesystem
 
 class TestAuditPlugin(unittest.TestCase):
 
@@ -83,4 +80,9 @@ OUTPUT ruleExecOut
 
         finally:
             os.unlink(rule_file)
+
+class test_resource_unixfilesystem__issue_19(Test_Resource_Unixfilesystem, unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        # Why: Run with this REP configured in order to exercise serialization of types in REPF
+        super(test_resource_unixfilesystem__issue_19, self).__init__(*args, **kwargs)
 
