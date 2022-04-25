@@ -64,13 +64,13 @@ irods::error get_re_configs(
     const std::string& _instance_name ) {
 
     try {
-        const auto& rule_engines = irods::get_server_property< const nlohmann::json& >(std::vector<std::string>{ irods::CFG_PLUGIN_CONFIGURATION_KW, irods::PLUGIN_TYPE_RULE_ENGINE } );
+        const auto& rule_engines = irods::get_server_property< const nlohmann::json& >(std::vector<std::string>{ irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE } );
         for ( const auto& rule_engine : rule_engines ) {
-            const auto& inst_name = rule_engine.at( irods::CFG_INSTANCE_NAME_KW ).get_ref<const std::string&>();
+            const auto& inst_name = rule_engine.at( irods::KW_CFG_INSTANCE_NAME).get_ref<const std::string&>();
             if ( inst_name == _instance_name ) {
-                if ( rule_engine.count( irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW ) > 0 ) {
+                if ( rule_engine.count( irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) > 0 ) {
 
-                    const auto& plugin_spec_cfg = rule_engine.at(irods::CFG_PLUGIN_SPECIFIC_CONFIGURATION_KW);
+                    const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
 
                     audit_pep_regex_to_match  = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
                     audit_amqp_topic          = plugin_spec_cfg.at("amqp_topic").get<std::string>();
