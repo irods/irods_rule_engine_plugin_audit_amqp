@@ -1,10 +1,10 @@
-# iRODS Rule Engine Plugin - Audit via AMQP
+# iRODS Rule Engine Plugin - Audit via AMQP 1.0
 
-This C++ plugin provides the iRODS platform a rule engine that emits a single AMQP message to the configured topic for every policy enforcement point (PEP) encountered by the iRODS server.
+This C++ plugin provides the iRODS platform a rule engine that can emit a single AMQP message to the configured topic for every policy enforcement point (PEP) encountered by the iRODS server.
 
 # Build
 
-Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.2 (http://github.com/irods/irods).
+Building the iRODS Audit Rule Engine Plugin requires iRODS 4.2.2+ (http://github.com/irods/irods).
 
 This plugin requires the iRODS development and runtime packages to be installed on the build machine.
 
