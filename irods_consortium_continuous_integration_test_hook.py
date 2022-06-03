@@ -91,8 +91,6 @@ def main():
     parser = optparse.OptionParser()
     parser.add_option('--output_root_directory', help='Path to the directory where logs and other files are written to.')
     parser.add_option('--built_packages_root_directory', help='Path to directory containing the audit plugin package.')
-    parser.add_option('--output_root_directory')
-    parser.add_option('--built_packages_root_directory')
     parser.add_option('--message_broker', default='apache-activemq-5.14.1', help='MQ server package name that needs to be tested.')
     parser.add_option('--test', metavar='dotted name')
     parser.add_option('--skip-setup', action='store_false', dest='do_setup', default=True)
