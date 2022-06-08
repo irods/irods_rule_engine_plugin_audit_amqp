@@ -23,10 +23,12 @@ def get_build_prerequisites_zypper():
 
 def get_test_packages():
     dispatch_map = {
-        'Ubuntu': get_build_prerequisites_apt,
-        'Centos': get_build_prerequisites_yum,
+        'Almalinux': get_build_prerequisites_yum,
         'Centos linux': get_build_prerequisites_yum,
+        'Centos': get_build_prerequisites_yum,
+        'Debian gnu_linux': get_build_prerequisites_apt,
         'Opensuse': get_build_prerequisites_zypper,
+        'Ubuntu': get_build_prerequisites_apt
     }
     try:
         return dispatch_map[irods_python_ci_utilities.get_distribution()]()
@@ -46,7 +48,7 @@ def install_apache_activemq(message_broker):
 
 
 def install_rabbitmq(message_broker):
-    if irods_python_ci_utilities.get_distribution() == 'Ubuntu':
+    if irods_python_ci_utilities.get_distribution() in ['Ubuntu', 'Debian']:
         irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.deb.sh | sudo bash', shell=True)
         irods_python_ci_utilities.subprocess_get_output(['wget', '-q', 'https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb'])
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'dpkg', '-i', 'erlang-solutions_1.0_all.deb'])
@@ -57,7 +59,7 @@ def install_rabbitmq(message_broker):
             irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'esl-erlang=1:19.3.6', '-y'])
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'apt-get', 'install', 'rabbitmq-server', '-y'])
 
-    if irods_python_ci_utilities.get_distribution() == 'Centos' or irods_python_ci_utilities.get_distribution() == 'Centos linux':
+    if irods_python_ci_utilities.get_distribution() in ['Centos', 'Centos linux', 'Almalinux']:
         irods_python_ci_utilities.subprocess_get_output(['sudo', 'rpm', '--rebuilddb'])
         irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash', shell=True)
         irods_python_ci_utilities.subprocess_get_output('curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | sudo bash', shell=True)
