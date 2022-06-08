@@ -28,11 +28,6 @@ class MessageWorker(Process):
                     for line in pid_file:
                         new_line = line
 
-                        if "__BEGIN_JSON__" in new_line:
-                            new_line = new_line.split("__BEGIN_JSON__")[1]
-                            if "__END_JSON__" in new_line:
-                                new_line = new_line.split("__END_JSON__")[0]
-
                         json_str = json.loads(new_line)
                         next_str = json.loads(next_task[count])
 
