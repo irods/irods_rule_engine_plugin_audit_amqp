@@ -24,7 +24,6 @@ def install_building_dependencies(externals_directory):
         'irods-externals-cmake3.21.4-0',
         'irods-externals-cppzmq4.8.1-1',
         'irods-externals-fmt8.1.1-0',
-        'irods-externals-jansson2.7-0',
         'irods-externals-json3.10.4-0',
         'irods-externals-libarchive3.5.2-0',
         'irods-externals-nanodbc2.13.0-1',
@@ -50,14 +49,16 @@ def install_os_specific_dependencies_apt():
     irods_python_ci_utilities.install_os_packages(['libcurl4-gnutls-dev', 'make', 'libssl-dev', 'gcc'])
 
 def install_os_specific_dependencies_yum():
-    irods_python_ci_utilities.install_os_packages(['curl-devel', 'openssl-devel'])
+    irods_python_ci_utilities.install_os_packages(['make', 'curl-devel', 'openssl-devel'])
 
 def install_os_specific_dependencies():
     dispatch_map = {
-        'Ubuntu': install_os_specific_dependencies_apt,
-        'Centos': install_os_specific_dependencies_yum,
+        'Almalinux': install_os_specific_dependencies_yum,
         'Centos linux': install_os_specific_dependencies_yum,
+        'Centos': install_os_specific_dependencies_yum,
+        'Debian gnu_linux': install_os_specific_dependencies_apt,
         'Opensuse ': install_os_specific_dependencies_yum,
+        'Ubuntu': install_os_specific_dependencies_apt
     }
     try:
         return dispatch_map[irods_python_ci_utilities.get_distribution()]()

@@ -17,7 +17,6 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections -Wl,-z,combreloc")
 
 include(IrodsExternals)
 
-IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(JANSSON jansson2.7-0)
 IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(QPID_PROTON qpid-proton0.36.0-0)
 
 string(REPLACE ";" ", " ${PLUGIN}_PACKAGE_DEPENDENCIES_STRING "${IRODS_PACKAGE_DEPENDENCIES_LIST}")
@@ -54,7 +53,6 @@ target_include_directories(
   ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/include
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_FMT}/include
-  ${IRODS_EXTERNALS_FULLPATH_JANSSON}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
 
@@ -63,10 +61,10 @@ target_link_libraries(
   PRIVATE
   irods_server
   irods_common
-  ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+  nlohmann_json::nlohmann_json
   dl
   )
 
