@@ -26,10 +26,6 @@ class TestListener(stomp.ConnectionListener):
         print('received an error "%s"' % message)
 
     def on_message(self, headers, message):
-        if "__BEGIN_JSON__" in message:
-            message = message.split("__BEGIN_JSON__")[1]
-            if "__END_JSON__" in message:
-                message = message.split("__END_JSON__")[0]
         rule_name = json.loads(message)['rule_name']
         # print("%s" % rule_name)
 

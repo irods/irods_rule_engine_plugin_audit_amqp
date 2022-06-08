@@ -27,11 +27,6 @@ class MessageBrokerConsumer(MessagingHandler):
         message = event.message.body
         pid = 0
 
-        if "__BEGIN_JSON__" in message:
-            message = message.split("__BEGIN_JSON__")[1]
-            if "__END_JSON__" in message:
-                message = message.split("__END_JSON__")[0]
-
         json_data = json.loads(message)
 
         if 'pid' in json_data:
