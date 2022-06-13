@@ -77,17 +77,21 @@ irods::error get_re_configs(
                     audit_amqp_location       = plugin_spec_cfg.at("amqp_location").get<std::string>();
                     audit_amqp_options        = plugin_spec_cfg.at("amqp_options").get<std::string>();
 
-                    // look for a test mode setting.  if it doesn't exist just keep test_mode at false.                    
+                    // look for a test mode setting.  if it doesn't exist just keep test_mode at false.
                     // if test_mode = true and log_path_prefix isn't set just leave the default
-                    try {
-                        const std::string& test_mode_str = plugin_spec_cfg.at("test_mode").get_ref<const std::string&>();
+                    const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
+                    if (test_mode_cfg != plugin_spec_cfg.end()) {
+                        const std::string& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
                         test_mode = boost::iequals(test_mode_str, "true");
                         if (test_mode) {
-                             log_path_prefix  = plugin_spec_cfg.at("log_path_prefix").get<std::string>();
+                            const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
+                            if (log_path_prefix_cfg != plugin_spec_cfg.end()) {
+                                log_path_prefix = log_path_prefix_cfg->get<std::string>();
+                            }
                         }
-                    } catch (const std::out_of_range& e1) {}
- 
-                } else {
+                    }
+                }
+                else {
                     rodsLog(
                         LOG_DEBUG,
                         "%s - using default configuration: regex - %s, topic - %s, location - %s",
@@ -99,10 +103,21 @@ irods::error get_re_configs(
                 return SUCCESS();
             }
         }
-    } catch ( const boost::bad_any_cast& e ) {
-        return ERROR( INVALID_ANY_CAST, e.what() );
-    } catch ( const std::out_of_range& e ) {
-        return ERROR( KEY_NOT_FOUND, e.what() );
+    }
+    catch (const boost::bad_any_cast& e) {
+        return ERROR(INVALID_ANY_CAST, e.what());
+    }
+    catch (const std::out_of_range& e) {
+        return ERROR(KEY_NOT_FOUND, e.what());
+    }
+    catch (const nlohmann::json::exception& e) {
+        return ERROR(SYS_LIBRARY_ERROR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+    }
+    catch (const std::exception& e) {
+        return ERROR(SYS_INTERNAL_ERR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+    }
+    catch (...) {
+        return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - an unknown error occurred", __func__, __LINE__));
     }
 
     std::stringstream msg;
