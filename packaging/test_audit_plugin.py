@@ -8,6 +8,8 @@ import unittest
 
 from . import session
 from .. import lib
+from .. import paths
+from ..configuration import IrodsConfig
 from .queue_listener import QueueListener
 from .test_resource_types import Test_Resource_Unixfilesystem
 
@@ -80,6 +82,29 @@ OUTPUT ruleExecOut
 
         finally:
             os.unlink(rule_file)
+
+
+    def test_missing_test_mode_config__issue_98(self):
+        with lib.file_backed_up(paths.server_config_path()):
+            with session.make_session_for_existing_admin() as admin_session:
+                irods_config = IrodsConfig()
+                print(irods_config.server_config)
+                del irods_config.server_config['plugin_configuration']['rule_engines'][1]['plugin_specific_configuration']['test_mode']
+                print(irods_config.server_config)
+                irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                admin_session.assert_icommand(['ils'], 'STDOUT', admin_session.home_collection)
+
+
+    def test_missing_log_path_prefix_config__issue_98(self):
+        with lib.file_backed_up(paths.server_config_path()):
+            with session.make_session_for_existing_admin() as admin_session:
+                irods_config = IrodsConfig()
+                print(irods_config.server_config)
+                del irods_config.server_config['plugin_configuration']['rule_engines'][1]['plugin_specific_configuration']['log_path_prefix']
+                print(irods_config.server_config)
+                irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                admin_session.assert_icommand(['ils'], 'STDOUT', admin_session.home_collection)
+
 
 class test_resource_unixfilesystem__issue_19(Test_Resource_Unixfilesystem, unittest.TestCase):
     def __init__(self, *args, **kwargs):
