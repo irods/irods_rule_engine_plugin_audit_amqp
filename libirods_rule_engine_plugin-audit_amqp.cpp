@@ -32,14 +32,60 @@
 static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic         = "irods_audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
+static std::string url                      = audit_amqp_location + "/" + audit_amqp_topic;
 static std::string audit_amqp_options       = "";
 static std::string log_path_prefix          = "/tmp";
 static bool test_mode                       = false;
 static std::ofstream log_file_ofstream;
 
-static pn_messenger_t * messenger = nullptr;
-
 static std::mutex  audit_plugin_mutex;
+
+// proton-cpp includes
+#include <proton/connection.hpp>
+#include <proton/container.hpp>
+#include <proton/listen_handler.hpp>
+#include <proton/listener.hpp>
+#include <proton/message.hpp>
+#include <proton/message_id.hpp>
+#include <proton/messaging_handler.hpp>
+#include <proton/value.hpp>
+#include <proton/tracker.hpp>
+#include <proton/types.hpp>
+#include <proton/sender.hpp>
+
+// See qpid-cpp docs (https://qpid.apache.org/releases/qpid-proton-0.27.0/proton/cpp/api/simple_send_8cpp-example.html)
+// Phillip Davis, 7/5/22
+class send_handler : public proton::messaging_handler {
+    private:
+        std::string url;
+        proton::sender sender;
+        std::string message;
+
+    public:
+        send_handler(
+            const std::string& _url,
+            const std::string& _message
+        ) : url(_url)
+            ,message(_message)
+        { }
+
+        send_handler(){ }
+
+        void on_container_start(proton::container &c) override {
+            sender = c.open_sender(url);
+        }
+
+        void on_tracker_accept(proton::tracker& t) override {
+            t.connection().close(); // we're only sending one message
+                                    // so we don't care about the credit system
+                                    // or tracking confirmed messages
+        }
+
+        void on_sendable(proton::sender &s) override {
+            proton::message m(message);
+            s.send(m);
+        }
+}; // class send_handler
 
 void insert_or_parse_as_bin (
     nlohmann::json& json_obj,
@@ -55,7 +101,7 @@ void insert_or_parse_as_bin (
         irods::log(
             LOG_DEBUG,
             fmt::format(
-                "[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary",
+                "[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary.",
                 json_obj["time_stamp"],
                 key
             )
@@ -140,10 +186,6 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
         irods::log(PASS(ret));
     }
 
-    messenger = pn_messenger(NULL);
-    pn_messenger_start(messenger);
-    pn_messenger_set_blocking(messenger, false);  // do not block
-
     nlohmann::json json_obj;
 
     struct timeval tv;
@@ -156,7 +198,7 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
     pid_t pid = getpid();
 
     std::string log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-    std::string tmp_msg;
+    std::string msg_str;
     try {
         json_obj["time_stamp"] = std::to_string(time_ms);
         insert_or_parse_as_bin(
@@ -175,7 +217,6 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
             );
         }
 
-        tmp_msg = json_obj.dump();
     }
     catch (const irods::exception& e) {
         rodsLog(LOG_NOTICE, e.client_display_what());
@@ -194,22 +235,9 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
         return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
     }
 
-    std::string msg_str = std::string("__BEGIN_JSON__") + tmp_msg + std::string("__END_JSON__");
-
-    pn_message_t * message;
-    pn_data_t * body;
-
-    message = pn_message();
-
-    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
-    pn_message_set_address(message, address.c_str());
-    body = pn_message_body(message);
-    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
-    pn_messenger_put(messenger, message);
-    pn_messenger_send(messenger, -1);
-
-    pn_message_free(message);
+    msg_str = json_obj.dump();
+    send_handler s(url, msg_str);
+    proton::container(s).run();
 
     if (test_mode) {
         log_file_ofstream.open(log_file);
@@ -225,7 +253,7 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
 
     nlohmann::json json_obj;
 
-    std::string tmp_msg;
+    std::string msg_str;
     try {
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -245,7 +273,7 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
         if (test_mode) {
             json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
         }
-        tmp_msg = json_obj.dump();
+        msg_str = json_obj.dump();
     }
     catch (const irods::exception& e) {
         rodsLog(LOG_NOTICE, e.client_display_what());
@@ -264,25 +292,8 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
         return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
     }
 
-    std::string msg_str = std::string("__BEGIN_JSON__") + tmp_msg + std::string("__END_JSON__");
-
-    pn_message_t * message;
-    pn_data_t * body;
-
-    message = pn_message();
-
-    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
-    pn_message_set_address(message, address.c_str());
-    body = pn_message_body(message);
-    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
-    pn_messenger_put(messenger, message);
-    pn_messenger_send(messenger, -1);
-
-    pn_message_free(message);
-
-    pn_messenger_stop(messenger);
-    pn_messenger_free(messenger);
+    send_handler s(url, msg_str);
+    proton::container(s).run();
 
     if (test_mode) {
         log_file_ofstream << msg_str << std::endl;
@@ -334,7 +345,7 @@ irods::error exec_rule(
     }
 
     nlohmann::json json_obj;
-    std::string tmp_msg;
+    std::string msg_str;
 
     try {
         struct timeval tv;
@@ -416,24 +427,10 @@ irods::error exec_rule(
         return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
     }
 
-    tmp_msg = json_obj.dump();
+    msg_str = json_obj.dump();
 
-    std::string msg_str = std::string("__BEGIN_JSON__") + tmp_msg + std::string("__END_JSON__");
-
-    pn_message_t * message;
-    pn_data_t * body;
-
-    message = pn_message();
-
-    std::string address = audit_amqp_location + "/" + audit_amqp_topic;
-
-    pn_message_set_address(message, address.c_str());
-    body = pn_message_body(message);
-    pn_data_put_string(body, pn_bytes(msg_str.length(), msg_str.c_str()));
-    pn_messenger_put(messenger, message);
-    pn_messenger_send(messenger, -1);
-
-    pn_message_free(message);
+    send_handler s(url, msg_str);
+    proton::container(s).run();
 
     if (test_mode) {
         log_file_ofstream << msg_str << std::endl;
