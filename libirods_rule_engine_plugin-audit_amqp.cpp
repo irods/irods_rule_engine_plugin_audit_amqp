@@ -25,14 +25,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
-// proton includes
-#include <proton/message.h>
-#include <proton/messenger.h>
-
 static std::string audit_pep_regex_to_match = "audit_.*";
-static std::string audit_amqp_topic         = "irods_audit_messages";
+static std::string audit_amqp_topic         = "audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
-static std::string url                      = audit_amqp_location + "/" + audit_amqp_topic;
+static std::string url;
 static std::string audit_amqp_options       = "";
 static std::string log_path_prefix          = "/tmp";
 static bool test_mode                       = false;
@@ -89,8 +85,8 @@ class send_handler : public proton::messaging_handler {
 
 void insert_or_parse_as_bin (
     nlohmann::json& json_obj,
-    const std::string&    key,
-    const std::string&    val
+    const std::string_view&    key,
+    const std::string_view&    val
 ) {
     try {
         json_obj[key] = nlohmann::json::parse("\"" + val + "\"");
@@ -100,12 +96,12 @@ void insert_or_parse_as_bin (
         );
         irods::log(
             LOG_DEBUG,
-            fmt::format(
+            fmt::runtime(
                 "[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary.",
                 json_obj["time_stamp"],
                 key
             )
-        );
+        ); // irods::log
     }
 }
 
@@ -137,6 +133,7 @@ irods::error get_re_configs(
                     audit_amqp_topic          = plugin_spec_cfg.at("amqp_topic").get<std::string>();
                     audit_amqp_location       = plugin_spec_cfg.at("amqp_location").get<std::string>();
                     audit_amqp_options        = plugin_spec_cfg.at("amqp_options").get<std::string>();
+                    url                       = audit_amqp_location + audit_amqp_topic;
 
                     // look for a test mode setting.  if it doesn't exist just keep test_mode at false.
                     // if test_mode = true and log_path_prefix isn't set just leave the default
@@ -273,7 +270,6 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
         if (test_mode) {
             json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
         }
-        msg_str = json_obj.dump();
     }
     catch (const irods::exception& e) {
         rodsLog(LOG_NOTICE, e.client_display_what());
@@ -292,6 +288,7 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
         return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
     }
 
+    msg_str = json_obj.dump();
     send_handler s(url, msg_str);
     proton::container(s).run();
 
@@ -428,7 +425,6 @@ irods::error exec_rule(
     }
 
     msg_str = json_obj.dump();
-
     send_handler s(url, msg_str);
     proton::container(s).run();
 
