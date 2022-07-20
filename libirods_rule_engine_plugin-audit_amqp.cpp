@@ -37,16 +37,10 @@ static std::ofstream log_file_ofstream;
 static std::mutex  audit_plugin_mutex;
 
 // proton-cpp includes
-#include <proton/connection.hpp>
 #include <proton/container.hpp>
-#include <proton/listen_handler.hpp>
-#include <proton/listener.hpp>
 #include <proton/message.hpp>
-#include <proton/message_id.hpp>
 #include <proton/messaging_handler.hpp>
-#include <proton/value.hpp>
 #include <proton/tracker.hpp>
-#include <proton/types.hpp>
 #include <proton/sender.hpp>
 
 // See qpid-cpp docs (https://qpid.apache.org/releases/qpid-proton-0.27.0/proton/cpp/api/simple_send_8cpp-example.html)
