@@ -65,6 +65,8 @@ target_link_libraries(
   irods_common
   ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton.so
+  ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-proactor.so.1
+  ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-core.so.10
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   dl
