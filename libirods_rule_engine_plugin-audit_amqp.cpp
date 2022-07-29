@@ -172,9 +172,7 @@ irods::error get_re_configs(
 }
 
 
-irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) {
-    (void) _u;
-
+irods::error start(irods::default_re_ctx&,const std::string& _instance_name) {
     std::lock_guard<std::mutex> lock(audit_plugin_mutex);
 
     irods::error ret = get_re_configs( _instance_name );
@@ -195,6 +193,7 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
 
     std::string msg_str;
     std::string log_file;
+
     try {
         json_obj["time_stamp"] = std::to_string(time_ms);
         insert_or_parse_as_bin(
@@ -243,14 +242,14 @@ irods::error start(irods::default_re_ctx& _u,const std::string& _instance_name) 
     return SUCCESS();
 }
 
-irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
-
+irods::error stop(irods::default_re_ctx&,const std::string& _instance_name) {
     std::lock_guard<std::mutex> lock(audit_plugin_mutex);
 
     nlohmann::json json_obj;
 
     std::string msg_str;
     std::string log_file;
+
     try {
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -265,7 +264,6 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
         json_obj["pid"] = std::to_string(pid);
 
         json_obj["action"] = "STOP";
-
 
         if (test_mode) {
             json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
@@ -301,7 +299,6 @@ irods::error stop(irods::default_re_ctx& _u,const std::string& _instance_name) {
 }
 
 irods::error rule_exists(irods::default_re_ctx&, const std::string& _rn, bool& _ret) {
-
     try {
         boost::smatch matches;
         boost::regex expr( audit_pep_regex_to_match );
@@ -331,7 +328,6 @@ irods::error exec_rule(
 
     using namespace std::chrono;
 
-
     // stores a counter of unique arg types
     std::map<std::string, int> arg_type_map;
 
@@ -345,6 +341,7 @@ irods::error exec_rule(
 
     std::string msg_str;
     std::string log_file;
+
     try {
         struct timeval tv;
         gettimeofday(&tv, NULL);
