@@ -63,8 +63,7 @@ target_link_libraries(
   PRIVATE
   irods_server
   irods_common
-  ${IRODS_EXTERNALS_FULLPATH_JANSSON}/lib/libjansson.so
-
+  ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton.so
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-proactor.so.1
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-core.so.10

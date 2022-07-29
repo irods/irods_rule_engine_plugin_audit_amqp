@@ -25,6 +25,13 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
+// proton-cpp includes
+#include <proton/container.hpp>
+#include <proton/message.hpp>
+#include <proton/messaging_handler.hpp>
+#include <proton/tracker.hpp>
+#include <proton/sender.hpp>
+
 static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic         = "irods_audit_messages";
 static std::string audit_amqp_location      = "localhost:5672";
@@ -35,13 +42,6 @@ static bool test_mode                       = false;
 static std::ofstream log_file_ofstream;
 
 static std::mutex  audit_plugin_mutex;
-
-// proton-cpp includes
-#include <proton/container.hpp>
-#include <proton/message.hpp>
-#include <proton/messaging_handler.hpp>
-#include <proton/tracker.hpp>
-#include <proton/sender.hpp>
 
 // See qpid-cpp docs (https://qpid.apache.org/releases/qpid-proton-0.27.0/proton/cpp/api/simple_send_8cpp-example.html)
 class send_handler : public proton::messaging_handler {
