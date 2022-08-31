@@ -42,7 +42,6 @@ include(UseLibCXX)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
-find_package(Threads REQUIRED)
 
 add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
