@@ -101,6 +101,7 @@ namespace
 			, _message(_message_body)
 			, _message_sent(false)
 		{
+			message.content_type("application/json");
 		}
 
 		void on_container_start(proton::container& container) override
