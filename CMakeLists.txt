@@ -38,7 +38,7 @@ find_package(nlohmann_json "3.6.1" REQUIRED)
 
 add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
-target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE})
+target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
   ${PLUGIN}
   PRIVATE
@@ -46,6 +46,7 @@ target_include_directories(
   ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/include
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_FMT}/include
+  ${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
 
