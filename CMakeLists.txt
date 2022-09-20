@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR) #CPACK_DEBIAN_<COMPONENT>_PACKAGE_NAME
 
+# Ensure try_compile() uses project settings
+cmake_policy(SET CMP0066 NEW)
+cmake_policy(SET CMP0067 NEW)
+
 find_package(IRODS 4.3.0 EXACT REQUIRED)
 set(IRODS_PLUGIN_REVISION "1")
 set(IRODS_PLUGIN_VERSION "${IRODS_VERSION}.${IRODS_PLUGIN_REVISION}")
@@ -31,6 +35,7 @@ include(${IRODS_TARGETS_PATH})
 
 include(GNUInstallDirs)
 include(UseLibCXX)
+include(CheckCXXSymbolExists)
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
@@ -60,6 +65,15 @@ target_link_libraries(
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   dl
   )
+
+check_cxx_symbol_exists(__cpp_lib_filesystem "version" HAVE_STD_FILESYSTEM)
+if (NOT HAVE_STD_FILESYSTEM)
+  target_link_libraries(
+    ${PLUGIN}
+    PRIVATE
+    ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
+    )
+endif()
 
 install(TARGETS ${PLUGIN} LIBRARY DESTINATION ${IRODS_PLUGINS_DIRECTORY}/rule_engines)
 
