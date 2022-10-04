@@ -21,12 +21,15 @@
 #include <boost/format.hpp>
 
 // proton-cpp includes
+#include <proton/connection.hpp>
 #include <proton/connection_options.hpp>
 #include <proton/container.hpp>
 #include <proton/message.hpp>
 #include <proton/messaging_handler.hpp>
 #include <proton/tracker.hpp>
+#include <proton/transport.hpp>
 #include <proton/sender.hpp>
+#include <proton/session.hpp>
 
 // nlohmann includes
 #include <nlohmann/json.hpp>
@@ -74,6 +77,19 @@ namespace
 	using ts_clock = std::chrono::system_clock;
 #endif
 
+	BOOST_FORCEINLINE void log_proton_error(const proton::error_condition& err_cond, const std::string& log_message)
+	{
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", log_message},
+			{"error_condition::name", err_cond.name()},
+			{"error_condition::description", err_cond.description()},
+			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
+	}
+
 	// See qpid-cpp docs
 	// https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/simple_send_8cpp-example.html
 	class send_handler : public proton::messaging_handler
@@ -112,6 +128,46 @@ namespace
 			if (_message_sent) {
 				tracker.connection().close();
 			}
+		}
+
+		void on_tracker_reject([[maybe_unused]] proton::tracker& _tracker) override
+		{
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{"log_message", "AMQP server unexpectedly rejected message"}
+			});
+			// clang-format on
+		}
+
+		void on_transport_error(proton::transport& _transport) override
+		{
+			log_proton_error(_transport.error(), "Transport error in proton messaging handler");
+		}
+
+		void on_connection_error(proton::connection& _connection) override
+		{
+			log_proton_error(_connection.error(), "Connection error in proton messaging handler");
+		}
+
+		void on_session_error(proton::session& _session) override
+		{
+			log_proton_error(_session.error(), "Session error in proton messaging handler");
+		}
+
+		void on_receiver_error(proton::receiver& _receiver) override
+		{
+			log_proton_error(_receiver.error(), "Receiver error in proton messaging handler");
+		}
+
+		void on_sender_error(proton::sender& _sender) override
+		{
+			log_proton_error(_sender.error(), "Sender error in proton messaging handler");
+		}
+
+		void on_error(const proton::error_condition& err_cond) override
+		{
+			log_proton_error(err_cond, "Unknown error in proton messaging handler");
 		}
 
 	  private:
