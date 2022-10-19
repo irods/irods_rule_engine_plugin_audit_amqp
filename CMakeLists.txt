@@ -57,7 +57,6 @@ target_link_libraries(
   irods_common
   nlohmann_json::nlohmann_json
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
-  ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_regex.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   dl
   )
