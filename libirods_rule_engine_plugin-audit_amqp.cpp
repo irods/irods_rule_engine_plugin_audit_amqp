@@ -25,6 +25,7 @@
 #include <proton/container.hpp>
 #include <proton/message.hpp>
 #include <proton/messaging_handler.hpp>
+#include <proton/timestamp.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
 #include <proton/sender.hpp>
@@ -119,13 +120,11 @@ namespace
 	class send_handler : public proton::messaging_handler
 	{
 	  public:
-		// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-		send_handler(const std::string& _message_body, const std::string& _url)
+		send_handler(const proton::message& _message, const std::string& _url)
 			: _amqp_url(_url)
-			, _message(_message_body)
+			, _message(_message)
 			, _message_sent(false)
 		{
-			_message.content_type("application/json");
 		}
 
 		void on_container_start(proton::container& container) override
@@ -194,7 +193,7 @@ namespace
 
 	  private:
 		const std::string& _amqp_url;
-		proton::message _message;
+		const proton::message& _message;
 		bool _message_sent;
 	}; // class send_handler
 
@@ -378,6 +377,14 @@ namespace
 				log_file_path = log_path_prefix / fmt::format(FMT_STRING("{0:08d}.txt"), pid);
 				json_obj["log_file"] = log_file_path;
 			}
+
+			msg_str = json_obj.dump();
+
+			proton::message msg(msg_str);
+			msg.content_type("application/json");
+			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			send_handler handler(msg, audit_amqp_url);
+			proton::container(handler).run();
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
@@ -394,10 +401,6 @@ namespace
 		catch (...) {
 			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 		}
-
-		msg_str = json_obj.dump();
-		send_handler handler(msg_str, audit_amqp_url);
-		proton::container(handler).run();
 
 		if (test_mode) {
 			if (!log_file_ofstream.is_open()) {
@@ -429,6 +432,14 @@ namespace
 			if (test_mode) {
 				json_obj["log_file"] = log_file_path;
 			}
+
+			msg_str = json_obj.dump();
+
+			proton::message msg(msg_str);
+			msg.content_type("application/json");
+			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			send_handler handler(msg, audit_amqp_url);
+			proton::container(handler).run();
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
@@ -445,10 +456,6 @@ namespace
 		catch (...) {
 			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 		}
-
-		msg_str = json_obj.dump();
-		send_handler handler(msg_str, audit_amqp_url);
-		proton::container(handler).run();
 
 		if (test_mode) {
 			if (!log_file_ofstream.is_open()) {
@@ -566,6 +573,14 @@ namespace
 					}
 				}
 			}
+
+			msg_str = json_obj.dump();
+
+			proton::message msg(msg_str);
+			msg.content_type("application/json");
+			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			send_handler handler(msg, audit_amqp_url);
+			proton::container(handler).run();
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"rule_name", _rn});
@@ -582,10 +597,6 @@ namespace
 		catch (...) {
 			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 		}
-
-		msg_str = json_obj.dump();
-		send_handler handler(msg_str, audit_amqp_url);
-		proton::container(handler).run();
 
 		if (test_mode) {
 			if (!log_file_ofstream.is_open()) {
