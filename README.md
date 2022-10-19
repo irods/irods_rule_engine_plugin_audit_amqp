@@ -40,7 +40,6 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
                 "plugin_specific_configuration" : {
                      "amqp_location" : "ANONYMOUS@localhost:5672",
-                     "amqp_options" : "",
                      "amqp_topic" : "audit_messages",
                      "pep_regex_to_match" : "audit_.*"
                  }

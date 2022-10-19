@@ -56,7 +56,6 @@ namespace
 	std::string audit_pep_regex_to_match{"audit_.*"};
 	std::string audit_amqp_topic{"irods_audit_messages"};
 	std::string audit_amqp_location{"localhost:5672"};
-	std::string audit_amqp_options;
 	std::string log_path_prefix{"/tmp"};
 	bool test_mode = false;
 	std::ofstream log_file_ofstream;
@@ -238,11 +237,9 @@ namespace
 				if (inst_name == _instance_name) {
 					if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) > 0) {
 						const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
-
 						audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 						audit_amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
 						audit_amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
-						audit_amqp_options = plugin_spec_cfg.at("amqp_options").get<std::string>();
 
 						// look for a test mode setting.  if it doesn't exist just keep test_mode at false.
 						// if test_mode = true and log_path_prefix isn't set just leave the default
@@ -256,6 +253,19 @@ namespace
 									log_path_prefix = log_path_prefix_cfg->get<std::string>();
 								}
 							}
+						}
+
+						// look for amqp_options and log a warning if it is present
+						const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
+						if (amqp_options_cfg != plugin_spec_cfg.end()) {
+							// clang-format off
+							log_re::warn({
+								{"rule_engine_plugin", rule_engine_name},
+								{"log_message", "Found amqp_options configuration setting. This setting is no longer "
+								                "used and should be removed from the plugin configuration."},
+								{"instance_name", _instance_name},
+							});
+							// clang-format on
 						}
 					}
 					else {

@@ -6,7 +6,6 @@
             "pep_regex_to_match" : "audit_.*",
             "amqp_topic" : "amq.topic",
             "amqp_location" : "localhost:5672",
-            "amqp_options" : ""
         }
     }
 ]

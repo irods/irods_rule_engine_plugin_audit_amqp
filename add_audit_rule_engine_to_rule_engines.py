@@ -10,7 +10,6 @@ def main():
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
                 "plugin_specific_configuration" : {
                      "amqp_location" : "ANONYMOUS@localhost:5672",
-                     "amqp_options" : "",
                      "amqp_topic" : "audit_messages",
                      "log_path_prefix": "/tmp/irods",
                      "pep_regex_to_match" : "audit_.*",
