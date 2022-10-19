@@ -1,1 +1,7 @@
 .vscode
+compile_commands.json
+CMakeLists.txt.user
+.clangd
+*.pyc
+*.pyd
+*.pyo

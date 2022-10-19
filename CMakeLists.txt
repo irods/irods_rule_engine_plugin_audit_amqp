@@ -46,7 +46,7 @@ find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
 
-add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/libirods_rule_engine_plugin-audit_amqp.cpp)
+add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/src/main.cpp)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
 target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
@@ -101,7 +101,7 @@ install(
   )
 
 install(
-  FILES ${CMAKE_SOURCE_DIR}/add_audit_rule_engine_to_rule_engines.py
+  FILES ${CMAKE_SOURCE_DIR}/scripts/add_audit_rule_engine_to_rule_engines.py
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts
   )
 
