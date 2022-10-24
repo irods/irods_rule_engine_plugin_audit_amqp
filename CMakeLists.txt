@@ -46,12 +46,25 @@ find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
 
-add_library(${PLUGIN} MODULE ${CMAKE_SOURCE_DIR}/src/main.cpp)
+add_library(
+  ${PLUGIN}
+  MODULE
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
+  )
+set(
+  ${PLUGIN}_HEADERS
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_sender.hpp"
+  )
+target_sources(${PLUGIN} PRIVATE ${${PLUGIN}_HEADERS})
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
 target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
   ${PLUGIN}
   PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   ${IRODS_INCLUDE_DIRS}
   ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/include
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
