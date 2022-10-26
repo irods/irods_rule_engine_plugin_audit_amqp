@@ -118,6 +118,8 @@ install(
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts
   )
 
+add_subdirectory(unit_tests)
+
 set(PLUGIN_PACKAGE_NAME irods-rule-engine-plugin-audit-amqp)
 
 include(IrodsCPackCommon)
