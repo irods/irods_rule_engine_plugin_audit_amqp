@@ -97,19 +97,11 @@ install(TARGETS ${PLUGIN} LIBRARY DESTINATION ${IRODS_PLUGINS_DIRECTORY}/rule_en
 
 install(
   FILES
-  ${CMAKE_SOURCE_DIR}/packaging/test_plugin_audit_amqp.py
   ${CMAKE_SOURCE_DIR}/packaging/test_audit_plugin.py
   ${CMAKE_SOURCE_DIR}/packaging/audit_plugin_message_worker.py
   ${CMAKE_SOURCE_DIR}/packaging/message_broker_consumer.py
   ${CMAKE_SOURCE_DIR}/packaging/queue_listener.py
   DESTINATION ${IRODS_HOME_DIRECTORY}/scripts/irods/test
-  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  )
-
-install(
-  FILES
-  ${CMAKE_SOURCE_DIR}/packaging/run_audit_plugin_test.py
-  DESTINATION ${IRODS_HOME_DIRECTORY}/scripts
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
 
