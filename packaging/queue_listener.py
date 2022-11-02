@@ -17,7 +17,7 @@ class QueueListener(object):
 
     def run(self):
 
-        timeout = 5
+        timeout = 3
         num_workers = 5
         for _ in range(num_workers):
             worker = MessageWorker(self.pid_queue, self.result_queue)

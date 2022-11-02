@@ -40,7 +40,7 @@ class MessageBrokerConsumer(MessagingHandler):
                 #print(message)
                 self.pid_dictionary[pid].append(message)
 
-            elif action == 'END' and pid in self.pid_dictionary:
+            elif action == 'STOP' and pid in self.pid_dictionary:
                 #print(message)
                 #print(pid)
                 self.pid_dictionary[pid].append(message)
