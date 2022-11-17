@@ -18,9 +18,9 @@ TEST_CASE("as-needed base64 encoding")
 	{
 		auto check_valid_str = [&]() {
 			// insert value
-			const std::uint64_t time_ms =
-				irods::audit::ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			irods::audit::insert_as_string_or_base64(json_obj, key, val, time_ms);
+			const std::uint64_t time_ms = irods::plugin::rule_engine::audit_amqp::ts_clock::now().time_since_epoch() /
+			                              std::chrono::milliseconds(1);
+			irods::plugin::rule_engine::audit_amqp::insert_as_string_or_base64(json_obj, key, val, time_ms);
 
 			// verify b64 key does not exist
 			const auto b64val_container = json_obj.find(key + "_b64");
@@ -82,9 +82,9 @@ TEST_CASE("as-needed base64 encoding")
 
 		auto check_invalid_str = [&]() {
 			// insert value
-			const std::uint64_t time_ms =
-				irods::audit::ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			irods::audit::insert_as_string_or_base64(json_obj, key, val, time_ms);
+			const std::uint64_t time_ms = irods::plugin::rule_engine::audit_amqp::ts_clock::now().time_since_epoch() /
+			                              std::chrono::milliseconds(1);
+			irods::plugin::rule_engine::audit_amqp::insert_as_string_or_base64(json_obj, key, val, time_ms);
 
 			// verify non-b64 key does not exist
 			const auto val_container = json_obj.find(key);
