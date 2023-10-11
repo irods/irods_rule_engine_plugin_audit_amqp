@@ -2,11 +2,23 @@
 #include "irods/private/amqp_sender.hpp"
 
 #include <boost/config.hpp>
+#include <fmt/core.h>
+#include <fmt/compile.h>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
 	namespace
 	{
+		BOOST_FORCEINLINE std::string build_amqp_url(
+			const std::string_view& _scheme,
+			const std::string_view& _host,
+			const std::uint_fast16_t& _port,
+			const std::string_view& _topic)
+		{
+			// TODO: use Boost.URL (if available at compile-time) to validate URLs
+			return fmt::format(FMT_COMPILE("{0:s}://{1:s}:{2:d}/{3:s}"), _scheme, _host, _port, _topic);
+		}
+
 		BOOST_FORCEINLINE void log_proton_error(const proton::error_condition& err_cond, const std::string& log_message)
 		{
 			// clang-format off
@@ -21,8 +33,68 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 	} // namespace
 
-	send_handler::send_handler(const proton::message& _message, const std::string& _url)
-		: _amqp_url(_url)
+	amqp_endpoint::amqp_endpoint(
+		const std::string_view& _scheme,
+		const std::string_view& _host,
+		const std::uint_fast16_t& _port,
+		const std::string_view& _topic,
+		const std::string_view& _user,
+		const std::string_view& _password)
+		: url(build_amqp_url(_scheme, _host, _port, _topic))
+		, user(_user)
+		, password(_password)
+	{
+	}
+
+	amqp_sender::amqp_sender(const std::vector<amqp_endpoint>& _endpoints)
+		: _endpoints(_endpoints), _endpoint_idx(static_cast<std::vector<amqp_endpoint>::size_type>(0))
+	{
+	}
+
+	amqp_sender::~amqp_sender()
+	{
+		if (_log_file_ofstream.is_open()) {
+			_log_file_ofstream.close();
+		}
+	}
+
+	void amqp_sender::enable_test_mode(const fs::path _test_mode_log_path)
+	{
+		if (_log_file_ofstream.is_open()) {
+			_log_file_ofstream.close();
+		}
+		_log_file_path.assign(_test_mode_log_path);
+	}
+
+	void amqp_sender::disable_test_mode()
+	{
+		_log_file_path.clear();
+		if (_log_file_ofstream.is_open()) {
+			_log_file_ofstream.close();
+		}
+	}
+
+	void amqp_sender::send_message(const nlohmann::json& _message_body, const std::uint64_t _timestamp_ms)
+	{
+		const std::string msg_str = _message_body.dump();
+
+		proton::message msg(msg_str);
+		msg.content_type("application/json");
+		msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(_timestamp_ms)));
+		send_handler handler(msg, _endpoints);
+		proton::container(handler).run();
+
+		if (!_log_file_path.empty()) {
+			if (!_log_file_ofstream.is_open()) {
+				_log_file_ofstream.open(_log_file_path);
+			}
+			_log_file_ofstream << msg_str << std::endl;
+		}
+	}
+
+	send_handler::send_handler(const proton::message& _message, const std::vector<amqp_endpoint>& _endpoints)
+		: _endpoints(_endpoints)
+		, _endpoint_idx(static_cast<std::vector<amqp_endpoint>::size_type>(0))
 		, _message(_message)
 		, _message_sent(false)
 	{
@@ -30,8 +102,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void send_handler::on_container_start(proton::container& _container)
 	{
+		const amqp_endpoint& endpoint = _endpoints[_endpoint_idx];
 		proton::connection_options conn_opts;
-		_container.open_sender(_amqp_url, conn_opts);
+		if (!endpoint.user.empty()) {
+			conn_opts.user(endpoint.user);
+		}
+		if (!endpoint.password.empty()) {
+			conn_opts.password(endpoint.password);
+		}
+		_container.open_sender(endpoint.url, conn_opts);
 	}
 
 	void send_handler::on_sendable(proton::sender& _sender)
