@@ -70,7 +70,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const auto pep_regex_flavor = std::regex::ECMAScript;
 
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-		const std::string_view default_pep_regex_to_match{"audit_.*"};
+		const std::string_view default_pep_regex_to_match{"pep_.+"};
 		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
 
 		const fs::path default_log_path_prefix{fs::temp_directory_path()};
