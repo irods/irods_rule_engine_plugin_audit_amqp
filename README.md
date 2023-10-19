@@ -35,24 +35,15 @@ After installing the plugin, `/etc/irods/server_config.json` needs to be configu
 Add a new stanza to the "rule_engines" array within `server_config.json`:
 
 ```json
-            {
-                "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
-                "plugin_name": "irods_rule_engine_plugin-audit_amqp",
-                "plugin_specific_configuration" : {
-                     "amqp_location" : "ANONYMOUS@localhost:5672",
-                     "amqp_topic" : "audit_messages",
-                     "pep_regex_to_match" : "audit_.*"
-                 }
-            },
-```
-
-Add the new `audit_` namespace to the "rule_engine_namespaces" array within `server_config.json`:
-
-```
-    "rule_engine_namespaces": [
-        "", 
-        "audit_"
-    ], 
+{
+    "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
+    "plugin_name": "irods_rule_engine_plugin-audit_amqp",
+    "plugin_specific_configuration" : {
+         "amqp_location" : "ANONYMOUS@localhost:5672",
+         "amqp_topic" : "audit_messages",
+         "pep_regex_to_match" : "pep_.+"
+     }
+}
 ```
 
 Further information on this plugin is described in the slide deck available here: http://slides.com/irods/ugm2016-auditing-rule-engine-amqp
