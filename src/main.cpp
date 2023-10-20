@@ -353,9 +353,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::map<std::string, std::size_t> arg_type_map;
 
 		ruleExecInfo_t* rei = nullptr;
-		irods::error err = _eff_hdlr("unsafe_ms_ctx", &rei);
-		if (!err.ok()) {
-			return err;
+		if (const auto err = _eff_hdlr("unsafe_ms_ctx", &rei); !err.ok()) {
+			// clang-format off
+			log_re::trace({
+				{"rule_engine_plugin", rule_engine_name},
+				{"log_message", "could not get rule execution context (REI)"},
+				{"rule_name", _rn},
+				{"error_result", err.result()}
+			});
+			// clang-format on
+			return CODE(RULE_ENGINE_CONTINUE);
 		}
 
 		nlohmann::json json_obj;
@@ -434,18 +441,21 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"rule_name", _rn});
-			return ERROR(e.code(), e.what());
 		}
 		catch (const nlohmann::json::exception& e) {
 			log_exception(e, "Caught nlohmann-json exception", {"rule_name", _rn});
-			return ERROR(SYS_LIBRARY_ERROR, e.what());
 		}
 		catch (const std::exception& e) {
 			log_exception(e, "Caught exception", {"rule_name", _rn});
-			return ERROR(SYS_INTERNAL_ERR, e.what());
 		}
 		catch (...) {
-			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{"log_message", "an unknown error occurred"},
+				{"rule_name", _rn}
+			});
+			// clang-format on
 		}
 
 		if (test_mode) {
@@ -455,7 +465,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			log_file_ofstream << msg_str << std::endl;
 		}
 
-		return err;
+		return CODE(RULE_ENGINE_CONTINUE);
 	}
 } // namespace irods::plugin::rule_engine::audit_amqp
 
