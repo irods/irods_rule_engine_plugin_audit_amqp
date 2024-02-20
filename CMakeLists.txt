@@ -45,6 +45,8 @@ include(CheckCXXSymbolExists)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
+find_package(fmt "8.1.1"
+  HINTS "${IRODS_EXTERNALS_FULLPATH_FMT}")
 
 add_library(
   ${PLUGIN}
@@ -68,7 +70,6 @@ target_include_directories(
   ${IRODS_INCLUDE_DIRS}
   ${IRODS_EXTERNALS_FULLPATH_ARCHIVE}/include
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
-  ${IRODS_EXTERNALS_FULLPATH_FMT}/include
   ${IRODS_EXTERNALS_FULLPATH_SPDLOG}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
@@ -79,6 +80,7 @@ target_link_libraries(
   irods_server
   irods_common
   nlohmann_json::nlohmann_json
+  fmt::fmt
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   ${CMAKE_DL_LIBS}
