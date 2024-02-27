@@ -1,12 +1,13 @@
-cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR) #CPACK_DEBIAN_<COMPONENT>_PACKAGE_NAME
+cmake_minimum_required(VERSION 3.19.0 FATAL_ERROR) #version range with find_package
 
 # Ensure try_compile() uses project settings
 cmake_policy(SET CMP0066 NEW)
 cmake_policy(SET CMP0067 NEW)
 
-find_package(IRODS 4.3.1 EXACT REQUIRED)
+set(IRODS_MINIMUM_VERSION "4.3.2")
+find_package(IRODS ${IRODS_MINIMUM_VERSION}...<4.4.0 REQUIRED)
 set(IRODS_PLUGIN_REVISION "0")
-set(IRODS_PLUGIN_VERSION "${IRODS_VERSION}.${IRODS_PLUGIN_REVISION}")
+set(IRODS_PLUGIN_VERSION "${IRODS_MINIMUM_VERSION}.${IRODS_PLUGIN_REVISION}")
 
 set(IRODS_PACKAGE_REVISION "0")
 
