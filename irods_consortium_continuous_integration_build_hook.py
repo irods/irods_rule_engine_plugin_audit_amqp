@@ -18,7 +18,7 @@ def install_building_dependencies(externals_directory):
     externals_list = [
         'irods-externals-avro-libcxx1.11.0-3',
         'irods-externals-boost-libcxx1.81.0-1',
-        'irods-externals-clang-runtime13.0.0-0',
+        'irods-externals-clang-runtime13.0.1-0',
         'irods-externals-catch22.13.8-0',
         'irods-externals-clang13.0.1-0',
         'irods-externals-cmake3.21.4-0',
