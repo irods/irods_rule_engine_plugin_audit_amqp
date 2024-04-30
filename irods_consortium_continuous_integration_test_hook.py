@@ -18,16 +18,20 @@ def get_build_prerequisites_apt():
 def get_build_prerequisites_yum():
     return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python3-devel']
 
+def get_build_prerequisites_dnf():
+    return get_build_prerequisites_all()+['java-1.8.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python3-devel']
+
 def get_build_prerequisites_zypper():
     return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel']
 
 def get_test_packages():
     dispatch_map = {
-        'Almalinux': get_build_prerequisites_yum,
+        'Almalinux': get_build_prerequisites_dnf,
         'Centos linux': get_build_prerequisites_yum,
         'Centos': get_build_prerequisites_yum,
         'Debian gnu_linux': get_build_prerequisites_apt,
         'Opensuse': get_build_prerequisites_zypper,
+        'Rocky linux': get_build_prerequisites_dnf,
         'Ubuntu': get_build_prerequisites_apt
     }
     try:
