@@ -57,10 +57,14 @@
 // clang-format off
 #ifdef __cpp_lib_filesystem
 #include <filesystem>
+#include <system_error>
 namespace fs = std::filesystem;
+using error_code_type = std::error_code;
 #else
 #include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 namespace fs = boost::filesystem;
+using error_code_type = boost::system::error_code;
 #endif
 // clang-format on
 
@@ -222,8 +226,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 
 				if (!log_file_ofstream.is_open()) {
-					boost::system::error_code ec;
-					boost::filesystem::create_directories(log_file_path.parent_path(), ec);
+					error_code_type ec;
+					fs::create_directories(log_file_path.parent_path(), ec);
 
 					log_re::trace("{}: opening log_file_ofstream [{}].", __func__, log_file_path.c_str());
 					log_file_ofstream.open(log_file_path);
