@@ -2,6 +2,7 @@
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/audit_b64enc.hpp"
 #include "irods/private/amqp_sender.hpp"
+#include <irods/irods_at_scope_exit.hpp>
 #include <irods/irods_logger.hpp>
 #include <irods/irods_re_plugin.hpp>
 #include <irods/irods_re_serialization.hpp>
@@ -212,6 +213,31 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string msg_str;
 
+		irods::at_scope_exit write_msg_to_test_log{[&] {
+			log_re::trace("{}: RUNNING AT_SCOPE_EXIT FOR WRITING TO FSTREAM.", __func__);
+			if (test_mode) {
+				if (log_file_path.empty()) {
+					log_re::trace("{}: log_file_path is empty. cannot log audit message to test file.", __func__);
+					return;
+				}
+
+				if (!log_file_ofstream.is_open()) {
+					boost::system::error_code ec;
+					boost::filesystem::create_directories(log_file_path.parent_path(), ec);
+
+					log_re::trace("{}: opening log_file_ofstream [{}].", __func__, log_file_path.c_str());
+					log_file_ofstream.open(log_file_path);
+				}
+
+				if (!log_file_ofstream) {
+					log_re::trace("{}: log_file_ofstream not in a good state.", __func__);
+				}
+
+				log_re::trace("{}: writing amqp message to log_file_ofstream [{}].", __func__, log_file_path.c_str());
+				log_file_ofstream << msg_str << std::endl;
+			}
+		}};
+
 		try {
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
@@ -249,13 +275,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		catch (...) {
 			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
-		}
-
-		if (test_mode) {
-			if (!log_file_ofstream.is_open()) {
-				log_file_ofstream.open(log_file_path);
-			}
-			log_file_ofstream << msg_str << std::endl;
 		}
 
 		return SUCCESS();
