@@ -81,6 +81,7 @@ target_link_libraries(
   nlohmann_json::nlohmann_json
   fmt::fmt
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   ${CMAKE_DL_LIBS}
   )
