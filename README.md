@@ -41,9 +41,18 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
     "plugin_specific_configuration" : {
          "amqp_location" : "ANONYMOUS@localhost:5672",
          "amqp_topic" : "audit_messages",
-         "pep_regex_to_match" : "pep_.+"
+         "pep_regex_to_match" : "audit_pep_(api|resource)_.*"
      }
-}
+},
+```
+
+Add the "audit_" namespace to the "rule_engine_namespaces" as well:
+
+```diff
+    "rule_engine_namespaces": [
+        "",
++        "audit_"
+    ],
 ```
 
 Further information on this plugin is described in the slide deck available here: http://slides.com/irods/ugm2016-auditing-rule-engine-amqp
