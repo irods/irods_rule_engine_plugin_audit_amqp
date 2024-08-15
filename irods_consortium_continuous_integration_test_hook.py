@@ -110,7 +110,6 @@ def main():
         irods_python_ci_utilities.install_os_packages(get_test_packages())
 
         irods_python_ci_utilities.subprocess_get_output(['sudo', '-EH', 'python3', '-m', 'pip', 'install',
-                                                         'unittest-xml-reporting==1.14.0',
                                                          'python-qpid-proton==0.36.0'])
 
         install_messaging_package(options.message_broker)
