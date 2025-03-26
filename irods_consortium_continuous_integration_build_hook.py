@@ -16,19 +16,15 @@ def add_cmake_to_front_of_path():
 
 def install_building_dependencies(externals_directory):
     externals_list = [
-        'irods-externals-avro1.11.0-3',
-        'irods-externals-boost1.81.0-1',
+        'irods-externals-boost1.81.0-2',
         'irods-externals-catch22.13.8-0',
-        'irods-externals-clang13.0.1-0',
+        'irods-externals-clang16.0.6-0',
         'irods-externals-cmake3.21.4-0',
-        'irods-externals-cppzmq4.8.1-1',
-        'irods-externals-fmt8.1.1-1',
+        'irods-externals-fmt8.1.1-2',
         'irods-externals-json3.10.4-0',
-        'irods-externals-libarchive3.5.2-0',
-        'irods-externals-nanodbc2.13.0-2',
-        'irods-externals-qpid-proton0.36.0-2',
-        'irods-externals-spdlog1.9.2-2',
-        'irods-externals-zeromq4-14.1.8-1'
+        'irods-externals-nanodbc2.13.0-3',
+        'irods-externals-qpid-proton0.36.0-3',
+        'irods-externals-spdlog1.9.2-3'
     ]
 
     if externals_directory == 'None' or externals_directory is None:
