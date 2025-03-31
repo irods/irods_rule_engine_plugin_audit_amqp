@@ -16,7 +16,6 @@
 
 // boost includes
 #include <boost/any.hpp>
-#include <boost/asio/ip/host_name.hpp>
 #include <boost/config.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
@@ -196,6 +195,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 		return ERROR(SYS_INVALID_INPUT_PARAM, "failed to find plugin configuration");
 	}
 
+	static auto setup(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
+	{
+		return SUCCESS();
+	} // setup
+
+	static auto teardown(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
+	{
+		return SUCCESS();
+	} // teardown
+
 	static auto start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
 		-> irods::error
 	{
@@ -245,7 +254,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		try {
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
-			json_obj["hostname"] = boost::asio::ip::host_name();
+			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
 
 			pid_t pid = getpid();
 			json_obj["pid"] = pid;
@@ -297,7 +306,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
 
-			json_obj["hostname"] = boost::asio::ip::host_name();
+			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
 			json_obj["pid"] = getpid();
 			json_obj["action"] = "STOP";
 
@@ -396,7 +405,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		try {
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
-			json_obj["hostname"] = boost::asio::ip::host_name();
+			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
 			json_obj["pid"] = getpid();
 			json_obj["rule_name"] = _rn;
 
@@ -507,6 +516,9 @@ extern "C" auto plugin_factory(const std::string& _inst_name, const std::string&
 	const auto not_supported = [](auto&&...) { return ERROR(SYS_NOT_SUPPORTED, "Not supported."); };
 
 	auto* rule_engine = new irods::pluggable_rule_engine<irods::default_re_ctx>(_inst_name, _context);
+
+	rule_engine->add_operation("setup", std::function{setup});
+	rule_engine->add_operation("teardown", std::function{teardown});
 
 	rule_engine->add_operation("start", std::function<irods::error(irods::default_re_ctx&, const std::string&)>(start));
 
