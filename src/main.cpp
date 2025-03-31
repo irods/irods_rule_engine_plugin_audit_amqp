@@ -195,6 +195,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 		return ERROR(SYS_INVALID_INPUT_PARAM, "failed to find plugin configuration");
 	}
 
+	static auto setup(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
+	{
+		return SUCCESS();
+	} // setup
+
+	static auto teardown(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
+	{
+		return SUCCESS();
+	} // teardown
+
 	static auto start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
 		-> irods::error
 	{
@@ -506,6 +516,9 @@ extern "C" auto plugin_factory(const std::string& _inst_name, const std::string&
 	const auto not_supported = [](auto&&...) { return ERROR(SYS_NOT_SUPPORTED, "Not supported."); };
 
 	auto* rule_engine = new irods::pluggable_rule_engine<irods::default_re_ctx>(_inst_name, _context);
+
+	rule_engine->add_operation("setup", std::function{setup});
+	rule_engine->add_operation("teardown", std::function{teardown});
 
 	rule_engine->add_operation("start", std::function<irods::error(irods::default_re_ctx&, const std::string&)>(start));
 
