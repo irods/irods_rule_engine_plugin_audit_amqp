@@ -15,7 +15,6 @@ def install_building_dependencies(externals_directory):
         'irods-externals-boost1.81.0-2',
         'irods-externals-clang16.0.6-0',
         'irods-externals-fmt8.1.1-2',
-        'irods-externals-json3.10.4-0',
         'irods-externals-nanodbc2.13.0-3',
         'irods-externals-qpid-proton0.36.0-3',
         'irods-externals-spdlog1.9.2-3'
