@@ -15,8 +15,6 @@ if (NOT IRODS_UNIT_TESTS_BUILD)
   return()
 endif()
 
-IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH(CATCH2 catch22.13.8-0)
-
 find_package(Catch2 "2.13.2" REQUIRED)
 include(Catch)
 

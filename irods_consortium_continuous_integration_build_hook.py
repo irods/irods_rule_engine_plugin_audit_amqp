@@ -13,7 +13,6 @@ import irods_python_ci_utilities
 def install_building_dependencies(externals_directory):
     externals_list = [
         'irods-externals-boost1.81.0-2',
-        'irods-externals-catch22.13.8-0',
         'irods-externals-clang16.0.6-0',
         'irods-externals-fmt8.1.1-2',
         'irods-externals-json3.10.4-0',
