@@ -10,6 +10,7 @@ from . import session
 from .. import lib
 from .. import paths
 from ..configuration import IrodsConfig
+from ..controller import IrodsController
 from .queue_listener import QueueListener
 from .test_resource_types import Test_Resource_Unixfilesystem
 
@@ -30,6 +31,9 @@ class TestAuditPlugin(unittest.TestCase):
                 self.queue_name = rule_engine["plugin_specific_configuration"]["amqp_topic"]
                 log_directory = rule_engine["plugin_specific_configuration"]["log_path_prefix"]
 
+        # Reload configuration after edits are made so that they take effect in the server.
+        IrodsController().reload_configuration()
+
         # create log directory
         if not os.path.exists(log_directory):
             os.makedirs(log_directory)
@@ -42,23 +46,31 @@ class TestAuditPlugin(unittest.TestCase):
     def test_audit_plugin(self):
         filename = self.largetestfile
 
-        with session.make_session_for_existing_admin() as admin_session:
-            admin_session.assert_icommand('iput -f {filename}'.format(**locals()), 'EMPTY')
-            admin_session.assert_icommand('iget -f {filename}'.format(**locals()), 'EMPTY')
-            admin_session.assert_icommand('irm -f {filename}'.format(**locals()), 'EMPTY')
+        try:
+            with session.make_session_for_existing_admin() as admin_session:
+                admin_session.assert_icommand('iput -f {filename}'.format(**locals()), 'EMPTY')
+                admin_session.assert_icommand('iget -f {filename}'.format(**locals()), 'EMPTY')
+                admin_session.assert_icommand('irm -f {filename}'.format(**locals()), 'EMPTY')
 
-        # Establish communication queues
-        pid_queue = multiprocessing.JoinableQueue()
-        result_queue = multiprocessing.Queue()
-        listener = QueueListener(pid_queue, result_queue, self.url, self.queue_name)
-        listener.run()
+            # Stop the server here because if we don't, messages will just keep coming in from the delay server
+            # and other internal processes and it will just keep processing the messages forever.
+            IrodsController().stop()
 
-        print("result queue size is ", result_queue.qsize())
-        self.assertEqual(0, pid_queue.qsize(), "the joinable queue pid_queue should be empty")
-        self.assertTrue(1 <= result_queue.qsize(), "the result queue size should at least be one")
-        for i in range(result_queue.qsize()):
-            result = result_queue.get()
-            self.assertEqual(result, 'passed')
+            # Establish communication queues
+            pid_queue = multiprocessing.JoinableQueue()
+            result_queue = multiprocessing.Queue()
+            listener = QueueListener(pid_queue, result_queue, self.url, self.queue_name)
+            listener.run()
+
+            print("result queue size is ", result_queue.qsize())
+            self.assertEqual(0, pid_queue.qsize(), "the joinable queue pid_queue should be empty")
+            self.assertTrue(1 <= result_queue.qsize(), "the result queue size should at least be one")
+            for i in range(result_queue.qsize()):
+                result = result_queue.get()
+                self.assertEqual(result, 'passed')
+
+        finally:
+            IrodsController().restart(test_mode=True)
 
     def test_delayed_rule_with_plugin_configured(self):
         rep_name = 'irods_rule_engine_plugin-audit_amqp-instance'
@@ -92,7 +104,11 @@ OUTPUT ruleExecOut
                 del irods_config.server_config['plugin_configuration']['rule_engines'][1]['plugin_specific_configuration']['test_mode']
                 print(irods_config.server_config)
                 irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                # Reload configuration after edits are made so that they take effect in the server.
+                IrodsController().reload_configuration()
                 admin_session.assert_icommand(['ils'], 'STDOUT', admin_session.home_collection)
+        # Reload configuration again after server configuration is restored.
+        IrodsController().reload_configuration()
 
 
     def test_missing_log_path_prefix_config__issue_98(self):
@@ -103,7 +119,11 @@ OUTPUT ruleExecOut
                 del irods_config.server_config['plugin_configuration']['rule_engines'][1]['plugin_specific_configuration']['log_path_prefix']
                 print(irods_config.server_config)
                 irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                # Reload configuration after edits are made so that they take effect in the server.
+                IrodsController().reload_configuration()
                 admin_session.assert_icommand(['ils'], 'STDOUT', admin_session.home_collection)
+        # Reload configuration again after server configuration is restored.
+        IrodsController().reload_configuration()
 
 
 class test_resource_unixfilesystem__issue_19(Test_Resource_Unixfilesystem, unittest.TestCase):
