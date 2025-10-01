@@ -19,7 +19,7 @@ def get_build_prerequisites_yum():
     return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python3-devel']
 
 def get_build_prerequisites_dnf():
-    return get_build_prerequisites_all()+['java-1.8.0-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python3-devel']
+    return get_build_prerequisites_all()+['java-21-openjdk-devel', 'libuuid-devel', 'openssl-devel', 'cyrus-sasl-devel', 'python3-devel']
 
 def get_build_prerequisites_zypper():
     return get_build_prerequisites_all()+['java-1.7.0-openjdk-devel']
