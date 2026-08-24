@@ -3,6 +3,7 @@
 
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/amqp_config.hpp"
+#include "irods/private/proton_error_event.hpp"
 
 #include <irods/irods_error.hpp>
 
@@ -21,6 +22,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include <list>
 #include <mutex>
 #include <optional>
 #include <semaphore>
@@ -93,6 +95,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<proton::container> container_;
 		std::optional<proton::connection> connection_;
 		std::optional<proton::sender> sender_;
+
+		std::list<proton_error_event> error_queue_;
 	};
 } //namespace irods::plugin::rule_engine::audit_amqp
 

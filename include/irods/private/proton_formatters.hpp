@@ -1,6 +1,8 @@
 #ifndef IRODS_AUDIT_AMQP_PROTON_FORMATTERS_HPP
 #define IRODS_AUDIT_AMQP_PROTON_FORMATTERS_HPP
 
+#include "irods/private/proton_object_type.hpp"
+
 #include <irods/irods_logger.hpp>
 
 #include <fmt/format.h>
@@ -493,16 +495,6 @@ struct fmt::formatter<proton::delivery_mode> : fmt::formatter<enum proton::deliv
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
-	// so we don't wind up in an infinite loop
-	enum class proton_dump_origin
-	{
-		TRACKER,
-		TRANSPORT,
-		CONNECTION,
-		SESSION,
-		SENDER
-	};
-
 	using log_list = std::vector<irods::experimental::log::key_value>;
 
 	template <typename T>
@@ -531,8 +523,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	// forward decls
 	inline void dump_proton_value(log_list&, proton::codec::decoder&, const std::string&, const bool = true);
-	inline void dump_proton_object(log_list&, const proton::transport&, const std::string&, const proton_dump_origin);
-	inline void dump_proton_object(log_list&, const proton::session&, const std::string&, const proton_dump_origin);
+	inline void dump_proton_object(log_list&, const proton::transport&, const std::string&, const proton_object_type);
+	inline void dump_proton_object(log_list&, const proton::session&, const std::string&, const proton_object_type);
 
 	template <class T>
 	inline void dump_proton_value(log_list& _log_kvs,
@@ -865,14 +857,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 	inline void dump_proton_object(log_list& _log_kvs,
 	                               const proton::connection& _connection,
 	                               const std::string& _key_prefix = "proton_connection::",
-	                               const proton_dump_origin _origin = proton_dump_origin::CONNECTION)
+	                               const proton_object_type _origin = proton_object_type::CONNECTION)
 	{
 		log_list_emplace(_log_kvs, "uninitialized", _connection.uninitialized(), _key_prefix);
 		log_list_emplace(_log_kvs, "active", _connection.active(), _key_prefix);
 		log_list_emplace(_log_kvs, "closed", _connection.closed(), _key_prefix);
 		log_list_emplace(_log_kvs, "virtual_host", _connection.virtual_host(), _key_prefix);
 		log_list_emplace(_log_kvs, "container_id", _connection.container_id(), _key_prefix);
-		if (_origin != proton_dump_origin::TRACKER) {
+		if (_origin != proton_object_type::TRACKER) {
 			// These fields come from the connection object's internal transport object.
 			// Under certain circumstances, a tracker objects's connection objects's internal transport object may be
 			// uninitialized. Avoid making calls that would access it when the top-level object is a tracker.
@@ -893,12 +885,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		dump_proton_value(_log_kvs, _connection.properties(), fmt::format(FMT_COMPILE("{}properties"), _key_prefix));
 
 		// only skip transport if we started there or in a tracker (see the comment above)
-		if ((_origin != proton_dump_origin::TRANSPORT) && (_origin != proton_dump_origin::TRACKER)) {
+		if ((_origin != proton_object_type::TRANSPORT) && (_origin != proton_object_type::TRACKER)) {
 			dump_proton_object(
 				_log_kvs, _connection.transport(), fmt::format(FMT_COMPILE("{}transport::"), _key_prefix), _origin);
 		}
 		// only add sessions if we started here or in transport
-		else if ((_origin == proton_dump_origin::TRANSPORT) || (_origin == proton_dump_origin::CONNECTION)) {
+		else if ((_origin == proton_object_type::TRANSPORT) || (_origin == proton_object_type::CONNECTION)) {
 			std::uint64_t s_ctr = 0;
 			for (const proton::session& session : _connection.sessions()) {
 				dump_proton_object(
@@ -907,7 +899,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		// for the same reasons as above, skip accessing the error object if we started with a tracker
-		if ((_origin != proton_dump_origin::TRACKER) && _connection.error()) {
+		if ((_origin != proton_object_type::TRACKER) && _connection.error()) {
 			dump_proton_object(_log_kvs, _connection.error(), fmt::format(FMT_COMPILE("{}error::"), _key_prefix));
 		}
 	}
@@ -915,7 +907,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	inline void dump_proton_object(log_list& _log_kvs,
 	                               const proton::sender& _sender,
 	                               const std::string& _key_prefix = "proton_sender::",
-	                               const proton_dump_origin _origin = proton_dump_origin::SENDER)
+	                               const proton_object_type _origin = proton_object_type::SENDER)
 	{
 		log_list_emplace(_log_kvs, "uninitialized", _sender.uninitialized(), _key_prefix);
 		log_list_emplace(_log_kvs, "active", _sender.active(), _key_prefix);
@@ -933,7 +925,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		dump_proton_value(_log_kvs, _sender.properties(), fmt::format(FMT_COMPILE("{}properties"), _key_prefix));
 
 		// only add connection and session if we started here
-		if (_origin == proton_dump_origin::SENDER) {
+		if (_origin == proton_object_type::SENDER) {
 			dump_proton_object(
 				_log_kvs, _sender.connection(), fmt::format(FMT_COMPILE("{}connection::"), _key_prefix), _origin);
 			dump_proton_object(
@@ -951,7 +943,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	inline void dump_proton_object(log_list& _log_kvs,
 	                               const proton::tracker& _tracker,
 	                               const std::string& _key_prefix = "proton_tracker::",
-	                               const proton_dump_origin _origin = proton_dump_origin::TRACKER)
+	                               const proton_object_type _origin = proton_object_type::TRACKER)
 	{
 		log_list_emplace(_log_kvs, "tag", _tracker.tag(), _key_prefix);
 		log_list_emplace(_log_kvs, "state", _tracker.state(), _key_prefix);
@@ -965,13 +957,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 	inline void dump_proton_object(log_list& _log_kvs,
 	                               const proton::transport& _transport,
 	                               const std::string& _key_prefix = "proton_transport::",
-	                               const proton_dump_origin _origin = proton_dump_origin::TRANSPORT)
+	                               const proton_object_type _origin = proton_object_type::TRANSPORT)
 	{
 		dump_proton_object(_log_kvs, _transport.ssl(), fmt::format(FMT_COMPILE("{}ssl::"), _key_prefix));
 		dump_proton_object(_log_kvs, _transport.sasl(), fmt::format(FMT_COMPILE("{}sasl::"), _key_prefix));
 
 		// only add connection if we started here
-		if (_origin == proton_dump_origin::TRANSPORT) {
+		if (_origin == proton_object_type::TRANSPORT) {
 			dump_proton_object(
 				_log_kvs, _transport.connection(), fmt::format(FMT_COMPILE("{}connection::"), _key_prefix), _origin);
 		}
@@ -984,7 +976,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	inline void dump_proton_object(log_list& _log_kvs,
 	                               const proton::session& _session,
 	                               const std::string& _key_prefix = "proton_session::",
-	                               const proton_dump_origin _origin = proton_dump_origin::SESSION)
+	                               const proton_object_type _origin = proton_object_type::SESSION)
 	{
 		log_list_emplace(_log_kvs, "uninitialized", _session.uninitialized(), _key_prefix);
 		log_list_emplace(_log_kvs, "active", _session.active(), _key_prefix);
@@ -994,12 +986,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_list_emplace(_log_kvs, "container::id", _session.container().id(), _key_prefix);
 
 		switch (_origin) {
-			case proton_dump_origin::SESSION:
+			case proton_object_type::SESSION:
 				dump_proton_object(
 					_log_kvs, _session.connection(), fmt::format(FMT_COMPILE("{}connection::"), _key_prefix), _origin);
 				[[fallthrough]];
-			case proton_dump_origin::TRANSPORT:
-			case proton_dump_origin::CONNECTION: {
+			case proton_object_type::TRANSPORT:
+			case proton_object_type::CONNECTION: {
 				std::uint64_t s_ctr = 0;
 				for (const proton::sender& sender : _session.senders()) {
 					dump_proton_object(

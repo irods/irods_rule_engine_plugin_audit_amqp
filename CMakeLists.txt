@@ -77,6 +77,7 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_config.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/audit_config.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/proton_error_event.cpp"
 )
 set(
   ${IRODS_PLUGIN_FULL_NAME}_HEADERS
@@ -85,7 +86,9 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_config.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_error_event.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_formatters.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_object_type.hpp"
 )
 set(
   ${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATORS

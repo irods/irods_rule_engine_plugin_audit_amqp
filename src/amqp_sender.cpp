@@ -639,6 +639,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)
 	{
+		error_queue_.emplace_back(_tracker);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
@@ -652,6 +653,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_transport_error(proton::transport& _transport)
 	{
+		error_queue_.emplace_back(_transport);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
@@ -665,6 +667,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_connection_error(proton::connection& _connection)
 	{
+		error_queue_.emplace_back(_connection);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
@@ -678,6 +681,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_session_error(proton::session& _session)
 	{
+		error_queue_.emplace_back(_session);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
@@ -691,6 +695,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_sender_error(proton::sender& _sender)
 	{
+		error_queue_.emplace_back(_sender);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
@@ -704,6 +709,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	void amqp_sender::on_error(const proton::error_condition& _err_cond)
 	{
+		error_queue_.emplace_back(_err_cond);
 		// clang-format off
 		log_list log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
