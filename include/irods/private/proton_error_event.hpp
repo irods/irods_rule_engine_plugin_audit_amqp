@@ -1,17 +1,18 @@
 #ifndef IRODS_AUDIT_AMQP_PROTON_ERROR_EVENT_HPP
 #define IRODS_AUDIT_AMQP_PROTON_ERROR_EVENT_HPP
 
-#include "irods/private/proton_formatters.hpp"
 #include "irods/private/proton_object_type.hpp"
 
 #include <proton/binary.hpp>
 #include <proton/connection.hpp>
+#include <proton/error_condition.hpp>
 #include <proton/sender.hpp>
 #include <proton/session.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
 
 #include <chrono>
+#include <exception>
 #include <variant>
 
 namespace irods::plugin::rule_engine::audit_amqp
@@ -21,7 +22,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 	  public:
 		using clock = std::chrono::steady_clock;
 		using time_point = clock::time_point;
-		using event_source_variant = std::variant<proton::error_condition,
+		using event_source_variant = std::variant<std::exception_ptr,
+		                                          proton::error_condition,
 		                                          proton::tracker,
 		                                          proton::transport,
 		                                          proton::connection,
@@ -42,12 +44,21 @@ namespace irods::plugin::rule_engine::audit_amqp
 		{}
 
 		proton_error_event(const time_point& _event_time_point,
-		                   const proton::error_condition& _event_source)
+		                   const std::exception_ptr& _event_source)
 			: proton_error_event(_event_time_point, proton_object_type::UNKNOWN, _event_source)
 		{}
 
-		proton_error_event(const proton::error_condition& _event_source)
+		proton_error_event(const std::exception_ptr& _event_source)
 			: proton_error_event(proton_object_type::UNKNOWN, _event_source)
+		{}
+
+		proton_error_event(const time_point& _event_time_point,
+		                   const proton::error_condition& _event_source)
+			: proton_error_event(_event_time_point, proton_object_type::ERROR_CONDITION, _event_source)
+		{}
+
+		proton_error_event(const proton::error_condition& _event_source)
+			: proton_error_event(proton_object_type::ERROR_CONDITION, _event_source)
 		{}
 
 		proton_error_event(const time_point& _event_time_point,

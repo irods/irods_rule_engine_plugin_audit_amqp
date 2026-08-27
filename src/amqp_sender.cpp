@@ -41,6 +41,7 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -48,6 +49,7 @@
 #include <semaphore>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
@@ -163,12 +165,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		container.sender_options(sender_opts);
 
 		const std::string& re_instance_name = re_instance_name_;
-		proton_thread_.emplace([&container, &re_instance_name]() {
+		auto& error_queue = error_queue_;
+		const auto run_e = std::make_shared<std::exception_ptr>();
+		const std::weak_ptr<std::exception_ptr> run_e_wk = run_e;
+		bool did_timeout = false;
+		proton_thread_.emplace([&container, &re_instance_name, &error_queue, run_e_wk]() {
 			try {
 				container.run();
 			}
 			catch (const std::exception& e) {
-				// handling exceptions in here is tricky, so just log and re-throw for now
+				if (const auto run_e = run_e_wk.lock(); run_e) {
+					*run_e = std::current_exception();
+				}
+				error_queue.emplace_back(std::current_exception());
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
@@ -177,7 +186,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"exception", e.what()}
 				});
 				// clang-format on
-				std::rethrow_exception(std::current_exception());
 			}
 		});
 
@@ -191,12 +199,27 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", "Reached timeout while establishing AMQP connection."}
 				});
 				// clang-format on
-				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while establishing AMQP connection.");
+				did_timeout = true;
 			}
 		}
 		else {
 			connection_sem_.acquire();
 		}
+		if (*run_e) {
+			try {
+				std::rethrow_exception(*run_e);
+			}
+			catch (const std::exception& e) {
+				// TODO: inspect exception?
+				return ERROR(RE_RUNTIME_ERROR,
+				             fmt::format("Unhandled exception while establishing AMQP connection: {}", e.what()));
+			}
+		}
+		if (did_timeout) {
+			// TODO: inspect error queue
+			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while establishing AMQP connection.");
+		}
+
 		if (amqp_config_.session_open_timeout() > std::chrono::milliseconds::zero()) {
 			if (!session_sem_.try_acquire_for(amqp_config_.session_open_timeout())) {
 				// clang-format off
@@ -206,12 +229,28 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", "Reached timeout while opening AMQP session."}
 				});
 				// clang-format on
+				did_timeout = true;
 				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP session.");
 			}
 		}
 		else {
 			session_sem_.acquire();
 		}
+		if (*run_e) {
+			try {
+				std::rethrow_exception(*run_e);
+			}
+			catch (const std::exception& e) {
+				// TODO: inspect exception?
+				return ERROR(RE_RUNTIME_ERROR,
+				             fmt::format("Unhandled exception while opening AMQP session: {}", e.what()));
+			}
+		}
+		if (did_timeout) {
+			// TODO: inspect error queue
+			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP session.");
+		}
+
 		if (amqp_config_.sender_open_timeout() > std::chrono::milliseconds::zero()) {
 			if (!sender_sem_.try_acquire_for(amqp_config_.sender_open_timeout())) {
 				// clang-format off
@@ -221,12 +260,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", "Reached timeout while opening AMQP sender."}
 				});
 				// clang-format on
+				did_timeout = true;
 				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP sender.");
 			}
 		}
 		else {
 			sender_sem_.acquire();
 		}
+		if (*run_e) {
+			try {
+				std::rethrow_exception(*run_e);
+			}
+			catch (const std::exception& e) {
+				// TODO: inspect exception?
+				return ERROR(RE_RUNTIME_ERROR,
+				             fmt::format("Unhandled exception while opening AMQP sender: {}", e.what()));
+			}
+		}
+		if (did_timeout) {
+			// TODO: inspect error queue
+			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP sender.");
+		}
+
+		// TODO: verify open connection and inspect error queue
 
 		return SUCCESS();
 	}
@@ -474,9 +530,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const std::weak_ptr<std::binary_semaphore> send_sem_wk = send_sem;
 		proton::sender& sender = *sender_;
 		const std::string& re_instance_name = re_instance_name_;
+		auto& error_queue = error_queue_;
 		const auto send_e = std::make_shared<std::exception_ptr>();
 		const std::weak_ptr<std::exception_ptr> send_e_wk = send_e;
-		const bool is_sending = sender.work_queue().add([&sender, msg, &re_instance_name, send_sem_wk, send_e_wk]() {
+		bool did_timeout = false;
+		const bool is_sending = sender.work_queue().add([&sender, msg, &re_instance_name, &error_queue, send_sem_wk, send_e_wk]() {
 			try {
 				const proton::tracker t = sender.send(*msg);
 #ifdef IRODS_AUDIT_EXTRA_TRACE
@@ -495,6 +553,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (const auto send_e = send_e_wk.lock(); send_e) {
 					*send_e = std::current_exception();
 				}
+				error_queue.emplace_back(std::current_exception());
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
@@ -518,15 +577,27 @@ namespace irods::plugin::rule_engine::audit_amqp
 						{"log_message", "Reached timeout while sending AMQP message."}
 					});
 					// clang-format on
-					ret = ERROR(RE_RUNTIME_ERROR, "Reached timeout while sending AMQP message.");
+					did_timeout = true;
 				}
 			}
 			else {
 				send_sem->acquire();
 			}
 			if (*send_e) {
-				std::rethrow_exception(*send_e);
+				try {
+					std::rethrow_exception(*send_e);
+				}
+				catch (const std::exception& e) {
+					// TODO: inspect exception?
+					ret = ERROR(RE_RUNTIME_ERROR,
+					             fmt::format("Unhandled exception while sending AMQP message: {}", e.what()));
+				}
 			}
+			else if (did_timeout) {
+				// TODO: inspect error queue
+				ret = ERROR(RE_RUNTIME_ERROR, "Reached timeout while sending AMQP message.");
+			}
+			// TODO: verify message sent (inspect tracker?) and inspect error queue
 		}
 		else {
 			// clang-format off

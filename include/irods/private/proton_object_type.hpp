@@ -6,6 +6,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	enum class proton_object_type
 	{
 		UNKNOWN,
+		ERROR_CONDITION,
 		TRACKER,
 		TRANSPORT,
 		CONNECTION,

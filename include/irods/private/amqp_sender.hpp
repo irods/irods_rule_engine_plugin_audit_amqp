@@ -22,12 +22,12 @@
 
 #include <cstdint>
 #include <fstream>
-#include <list>
 #include <mutex>
 #include <optional>
 #include <semaphore>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
@@ -96,7 +96,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<proton::connection> connection_;
 		std::optional<proton::sender> sender_;
 
-		std::list<proton_error_event> error_queue_;
+		std::vector<proton_error_event> error_queue_;
 	};
 } //namespace irods::plugin::rule_engine::audit_amqp
 
