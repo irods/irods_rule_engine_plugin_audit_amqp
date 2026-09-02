@@ -585,10 +585,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		connection_ = _container.connect(amqp_config_.primary_endpoint(), conn_opts);
 		connection_sem_.release();
 
-		auto session = connection_->default_session();
-		if (session.uninitialized() || session.closed()) {
-			session.open(proton::session_options().handler(*this));
-		}
+		auto session = connection_->open_session(proton::session_options().handler(*this));
 		session_sem_.release();
 
 		sender_ = session.open_sender(amqp_config_.path(), sender_opts);
