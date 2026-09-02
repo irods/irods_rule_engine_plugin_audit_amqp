@@ -51,6 +51,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                                        std::ofstream& _test_log_ofstream);
 
 		void on_container_start(proton::container& _container) override;
+		void on_connection_open(proton::connection& _connection) override;
+		void on_session_open(proton::session& _session) override;
+		void on_sender_open(proton::sender& _sender) override;
 		void on_transport_error(proton::transport& _transport) override;
 		void on_connection_error(proton::connection& _connection) override;
 		void on_session_error(proton::session& _session) override;
@@ -63,11 +66,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		void on_sendable(proton::sender& _sender) override;
 		void on_transport_open(proton::transport& _transport) override;
 		void on_transport_close(proton::transport& _transport) override;
-		void on_connection_open(proton::connection& _connection) override;
 		void on_connection_close(proton::connection& _connection) override;
-		void on_session_open(proton::session& _session) override;
 		void on_session_close(proton::session& _session) override;
-		void on_sender_open(proton::sender& _sender) override;
 		void on_sender_detach(proton::sender& _sender) override;
 		void on_sender_close(proton::sender& _sender) override;
 		void on_tracker_accept(proton::tracker& _tracker) override;

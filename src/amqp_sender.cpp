@@ -180,6 +180,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::rethrow_exception(std::current_exception());
 			}
 		});
+
+		container.connect(amqp_config_.primary_endpoint(), conn_opts);
 		if (amqp_config_.connection_open_timeout() > std::chrono::milliseconds::zero()) {
 			if (!connection_sem_.try_acquire_for(amqp_config_.connection_open_timeout())) {
 				// clang-format off
@@ -561,6 +563,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		return ret;
 	}
 
+	// TODO: add container start (and stop?) timeouts
+	// TODO: continue breaking up event handler into open
 	void amqp_sender::on_container_start([[maybe_unused]] proton::container& _container)
 	{
 #ifdef IRODS_AUDIT_EXTRA_TRACE
@@ -573,24 +577,64 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 #endif
+	}
 
-		proton::connection_options conn_opts;
-		conn_opts.handler(*this);
-		amqp_config_.configure_connection(conn_opts, re_instance_name_);
-
-		proton::sender_options sender_opts;
-		sender_opts.handler(*this);
-		amqp_config_.configure_sender(sender_opts);
-
-		connection_ = _container.connect(amqp_config_.primary_endpoint(), conn_opts);
+	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& _connection)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_list log_kvs({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+		dump_proton_object(log_kvs, _connection);
+		log_re::trace(log_kvs);
+#endif
+		connection_ = _connection;
 		connection_sem_.release();
 
 		auto session = connection_->open_session(proton::session_options().handler(*this));
 		session_sem_.release();
 
+		proton::sender_options sender_opts;
+		sender_opts.handler(*this);
+		amqp_config_.configure_sender(sender_opts);
+
 		sender_ = session.open_sender(amqp_config_.path(), sender_opts);
 		is_open_ = true;
 		sender_sem_.release();
+	}
+
+	void amqp_sender::on_session_open([[maybe_unused]] proton::session& _session)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_list log_kvs({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+		dump_proton_object(log_kvs, _session);
+		log_re::trace(log_kvs);
+#endif
+	}
+
+	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& _sender)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_list log_kvs({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+		dump_proton_object(log_kvs, _sender);
+		log_re::trace(log_kvs);
+#endif
 	}
 
 	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)
@@ -721,19 +765,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_re::trace(log_kvs);
 	}
 
-	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& _connection)
-	{
-		// clang-format off
-		log_list log_kvs({
-			{"rule_engine_plugin", rule_engine_name},
-			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-		dump_proton_object(log_kvs, _connection);
-		log_re::trace(log_kvs);
-	}
-
 	void amqp_sender::on_connection_close([[maybe_unused]] proton::connection& _connection)
 	{
 		// clang-format off
@@ -747,19 +778,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_re::trace(log_kvs);
 	}
 
-	void amqp_sender::on_session_open([[maybe_unused]] proton::session& _session)
-	{
-		// clang-format off
-		log_list log_kvs({
-			{"rule_engine_plugin", rule_engine_name},
-			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-		dump_proton_object(log_kvs, _session);
-		log_re::trace(log_kvs);
-	}
-
 	void amqp_sender::on_session_close([[maybe_unused]] proton::session& _session)
 	{
 		// clang-format off
@@ -770,19 +788,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 		dump_proton_object(log_kvs, _session);
-		log_re::trace(log_kvs);
-	}
-
-	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& _sender)
-	{
-		// clang-format off
-		log_list log_kvs({
-			{"rule_engine_plugin", rule_engine_name},
-			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-		dump_proton_object(log_kvs, _sender);
 		log_re::trace(log_kvs);
 	}
 
