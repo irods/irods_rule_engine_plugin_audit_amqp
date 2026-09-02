@@ -213,7 +213,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			session_sem_.acquire();
 		}
 		if (amqp_config_.sender_open_timeout() > std::chrono::milliseconds::zero()) {
-			if (!session_sem_.try_acquire_for(amqp_config_.sender_open_timeout())) {
+			if (!sender_sem_.try_acquire_for(amqp_config_.sender_open_timeout())) {
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
@@ -225,7 +225,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 		else {
-			session_sem_.acquire();
+			sender_sem_.acquire();
 		}
 
 		return SUCCESS();
