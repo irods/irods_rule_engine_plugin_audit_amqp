@@ -94,6 +94,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::optional<proton::container> container_;
 		std::optional<proton::connection> connection_;
+		std::optional<proton::session> session_;
 		std::optional<proton::sender> sender_;
 
 		std::vector<proton_error_event> error_queue_;

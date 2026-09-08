@@ -219,7 +219,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// TODO: inspect error queue
 			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while establishing AMQP connection.");
 		}
+		if (!connection_.has_value()) {
+			return ERROR(RE_RUNTIME_ERROR, "AMQP connection established, but connection object not populated.");
+		}
 
+		auto& connection = connection_.value();
+		const proton::session_options sess_opts = proton::session_options().handler(*this);
+		bool wq_res = connection_->work_queue().add([&connection, &sess_opts]() {
+			connection.open_session(sess_opts);
+		});
+		if (!wq_res) {
+			return ERROR(RE_RUNTIME_ERROR, "Could not enqueue AMQP session open call.");
+		}
 		if (amqp_config_.session_open_timeout() > std::chrono::milliseconds::zero()) {
 			if (!session_sem_.try_acquire_for(amqp_config_.session_open_timeout())) {
 				// clang-format off
@@ -250,7 +261,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// TODO: inspect error queue
 			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP session.");
 		}
+		if (!session_.has_value()) {
+			return ERROR(RE_RUNTIME_ERROR, "AMQP session opened, but session object not populated.");
+		}
 
+		auto& session = session_.value();
+		const auto& amqp_path = amqp_config_.path();
+		wq_res = connection_->work_queue().add([&session, &sender_opts, &amqp_path]() {
+			session.open_sender(amqp_path, sender_opts);
+		});
+		if (!wq_res) {
+			return ERROR(RE_RUNTIME_ERROR, "Could not enqueue AMQP sender open call.");
+		}
 		if (amqp_config_.sender_open_timeout() > std::chrono::milliseconds::zero()) {
 			if (!sender_sem_.try_acquire_for(amqp_config_.sender_open_timeout())) {
 				// clang-format off
@@ -280,6 +302,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (did_timeout) {
 			// TODO: inspect error queue
 			return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP sender.");
+		}
+		if (!sender_.has_value()) {
+			return ERROR(RE_RUNTIME_ERROR, "AMQP sender opened, but sender object not populated.");
 		}
 
 		// TODO: verify open connection and inspect error queue
@@ -665,17 +690,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 		connection_ = _connection;
 		connection_sem_.release();
-
-		auto session = connection_->open_session(proton::session_options().handler(*this));
-		session_sem_.release();
-
-		proton::sender_options sender_opts;
-		sender_opts.handler(*this);
-		amqp_config_.configure_sender(sender_opts);
-
-		sender_ = session.open_sender(amqp_config_.path(), sender_opts);
-		is_open_ = true;
-		sender_sem_.release();
 	}
 
 	void amqp_sender::on_session_open([[maybe_unused]] proton::session& _session)
@@ -691,6 +705,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		dump_proton_object(log_kvs, _session);
 		log_re::trace(log_kvs);
 #endif
+		session_ = _session;
+		session_sem_.release();
 	}
 
 	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& _sender)
@@ -706,6 +722,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		dump_proton_object(log_kvs, _sender);
 		log_re::trace(log_kvs);
 #endif
+		sender_ = _sender;
+		is_open_ = true;
+		sender_sem_.release();
 	}
 
 	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)
