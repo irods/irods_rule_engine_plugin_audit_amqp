@@ -3,21 +3,19 @@
 
 #include "irods/private/audit_amqp.hpp"
 
-#include <string>
-
-#include <boost/config.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
 
 #include <nlohmann/json.hpp>
 
+#include <string>
+
 namespace irods::plugin::rule_engine::audit_amqp
 {
-	static BOOST_FORCEINLINE void insert_as_string_or_base64(
-		nlohmann::json& json_obj,
-		const std::string& key,
-		const std::string& val,
-		const std::uint64_t& time_ms)
+	static inline void insert_as_string_or_base64(nlohmann::json& json_obj,
+	                                              const std::string& key,
+	                                              const std::string& val,
+	                                              const std::uint64_t& time_ms)
 	{
 		try {
 			json_obj[key] = nlohmann::json::parse("\"" + val + "\"");

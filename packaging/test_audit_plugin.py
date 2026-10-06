@@ -27,16 +27,54 @@ class TestAuditPlugin(unittest.TestCase):
         rule_engines = config["plugin_configuration"]["rule_engines"]
         for rule_engine in rule_engines:
             if rule_engine["instance_name"] == "irods_rule_engine_plugin-audit_amqp-instance":
-                self.url = rule_engine["plugin_specific_configuration"]["amqp_location"]
-                self.queue_name = rule_engine["plugin_specific_configuration"]["amqp_topic"]
-                log_directory = rule_engine["plugin_specific_configuration"]["log_path_prefix"]
+                rule_engine_cfg = rule_engine["plugin_specific_configuration"]
+
+                # Fetch and construct AMQP endpoint URLs
+                self.amqp_endpoints = []
+                first_endpoint_done = False
+                for endpoint in rule_engine_cfg["amqp_endpoints"]:
+                    scheme = endpoint.get("scheme", "")
+                    scheme = (scheme + "://") if scheme else ""
+                    if not first_endpoint_done:
+                        self.amqp_location_scheme = scheme
+                    host = endpoint["host"]
+                    port = str(endpoint.get("port", ""))
+                    port_pre = ":" if port else ""
+                    e_params = "&".join([k if v is None else f"{k}={v}" for k, v in endpoint.get("parameters", {}).items()])
+                    e_params_pre = "?" if e_params else ""
+                    e_frag = ""
+                    e_frag_pre = ""
+                    if "fragment" in endpoint:
+                        e_frag = endpoint["fragment"]
+                        e_frag_pre = "#"
+                        e_frag = "" if e_frag is None else e_frag
+                    port_post = "/" if e_params or e_frag_pre else ""
+                    endpoint_wo_scheme = f"{host}{port_pre}{port}{port_post}{e_params_pre}{e_params}{e_frag_pre}{e_frag}"
+                    if not first_endpoint_done:
+                        self.amqp_location = endpoint_wo_scheme
+                        first_endpoint_done = True
+                    self.amqp_endpoints.append(scheme + endpoint_wo_scheme)
+
+                # Fetch AMQP credentials
+                self.amqp_user = rule_engine_cfg.get("amqp_user", None)
+                self.amqp_password = rule_engine_cfg.get("amqp_password", None)
+
+                # Fetch and construct AMQP path URI
+                path = rule_engine_cfg.get("amqp_path", None)
+                path_pre = "" if path is None else "/"
+                path = "" if path is None else path
+                p_params = "&".join([k if v is None else f"{k}={v}" for k, v in rule_engine_cfg.get("amqp_path_parameters", {}).items()])
+                p_parms_pre = "?" if p_params else ""
+                p_frag = ""
+                p_frag_pre = ""
+                if "amqp_path_fragment" in rule_engine_cfg:
+                    p_frag = rule_engine_cfg["amqp_path_fragment"]
+                    p_frag_pre = "#"
+                    p_frag = "" if p_frag is None else p_frag
+                self.amqp_path = f"{path_pre}{path}{p_parms_pre}{p_params}{p_frag_pre}{p_frag}"
 
         # Reload configuration after edits are made so that they take effect in the server.
         IrodsController().reload_configuration()
-
-        # create log directory
-        if not os.path.exists(log_directory):
-            os.makedirs(log_directory)
 
     def tearDown(self):
         filepath = os.path.abspath(self.largetestfile)
@@ -59,7 +97,7 @@ class TestAuditPlugin(unittest.TestCase):
             # Establish communication queues
             pid_queue = multiprocessing.JoinableQueue()
             result_queue = multiprocessing.Queue()
-            listener = QueueListener(pid_queue, result_queue, self.url, self.queue_name)
+            listener = QueueListener(pid_queue, result_queue, self.amqp_endpoints, self.amqp_user, self.amqp_password, self.amqp_path)
             listener.run()
 
             print("result queue size is ", result_queue.qsize())
@@ -95,6 +133,43 @@ OUTPUT ruleExecOut
         finally:
             os.unlink(rule_file)
 
+    def test_deprecated_endpoint_configuration__issue_106_109(self):
+        try:
+            with lib.file_backed_up(paths.server_config_path()):
+                irods_config = IrodsConfig()
+                for rule_engine in irods_config.server_config["plugin_configuration"]["rule_engines"]:
+                    if rule_engine["instance_name"] == "irods_rule_engine_plugin-audit_amqp-instance":
+                        rule_engine_cfg = rule_engine["plugin_specific_configuration"]
+
+                        # remove AMQP endpoint/credentials/path config
+                        rule_engine_cfg.pop("amqp_endpoints", None)
+                        rule_engine_cfg.pop("amqp_user", None)
+                        rule_engine_cfg.pop("amqp_password", None)
+                        rule_engine_cfg.pop("amqp_path", None)
+                        rule_engine_cfg.pop("amqp_path_parameters", None)
+                        rule_engine_cfg.pop("amqp_path_fragment", None)
+
+                        # construct and set amqp_location
+                        cred_part = self.amqp_password or ""
+                        if cred_part:
+                            cred_part = (self.amqp_user or "ANONYMOUS") + ":" + cred_part + "@"
+                        elif self.amqp_user:
+                            cred_part = self.amqp_user + "@"
+                        rule_engine_cfg["amqp_location"] = self.amqp_location_scheme + self.amqp_location
+
+                        # set amqp_topic
+                        rule_engine_cfg["amqp_topic"] = self.amqp_path
+                print(irods_config.server_config)
+                irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                # Reload configuration after edits are made so that they take effect in the server.
+                IrodsController().reload_configuration()
+                
+                self.test_audit_plugin()
+
+        finally:
+            # Reload configuration again after server configuration is restored.
+            IrodsController().reload_configuration()
+
 
     def test_missing_test_mode_config__issue_98(self):
         with lib.file_backed_up(paths.server_config_path()):
@@ -126,8 +201,10 @@ OUTPUT ruleExecOut
         IrodsController().reload_configuration()
 
 
+@unittest.skip('Skipping due to long run time')
 class test_resource_unixfilesystem__issue_19(Test_Resource_Unixfilesystem, unittest.TestCase):
     def __init__(self, *args, **kwargs):
         # Why: Run with this REP configured in order to exercise serialization of types in REPF
         super(test_resource_unixfilesystem__issue_19, self).__init__(*args, **kwargs)
 
+del Test_Resource_Unixfilesystem

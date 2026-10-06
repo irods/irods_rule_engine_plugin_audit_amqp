@@ -20,6 +20,7 @@ if (NOT Catch2_FOUND)
   find_package(Catch2 2.13.2 REQUIRED)
 endif()
 
+include(ObjectTargetHelpers)
 include(Catch)
 
 # create phony target to build all unit tests
@@ -30,6 +31,7 @@ enable_testing()
 
 function(add_irods_unit_test test_name)
   include("${CMAKE_CURRENT_SOURCE_DIR}/${test_name}/${test_name}.cmake")
+  set(IRODS_TEST_TARGET "${IRODS_RULE_ENGINE_PLUGIN_NAME}-${IRODS_TEST_TARGET}")
   add_executable(
     ${IRODS_TEST_TARGET}
     ${IRODS_TEST_SOURCE_FILES}
@@ -101,3 +103,4 @@ function(add_irods_unit_test test_name)
 endfunction()
 
 add_irods_unit_test(b64enc)
+add_irods_unit_test(config_load)

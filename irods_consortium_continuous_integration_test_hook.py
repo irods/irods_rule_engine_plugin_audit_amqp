@@ -1,11 +1,13 @@
-from __future__ import print_function
+#!/usr/bin/env python3
 
+import glob
+import itertools
 import optparse
 import os
 import shutil
-import glob
 import time
 import tempfile
+
 import irods_python_ci_utilities
 
 
@@ -124,27 +126,51 @@ def main():
             'python3 scripts/add_audit_rule_engine_to_rule_engines.py'],
             check_rc=True)
 
-    test_audit_log = 'log/test_audit_plugin.log'
-    test_output_file = 'log/test_output.log'
+    python_tests = [
+        'test_audit_plugin',
+    ]
+    catch2_tests = [
+        'test_b64enc',
+        'test_config_load',
+    ]
 
-    test = options.test or 'test_audit_plugin'
+    python_tests_failed = []
+    catch2_tests_failed = []
+
+    if options.test:
+        if options.test in catch2_tests:
+            python_tests = []
+            catch2_tests = [options.test]
+        else:
+            python_tests = [options.test]
+            catch2_tests = []
 
     try:
-        irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c',
-            f'python3 scripts/run_tests.py --xml_output --run_s={test} 2>&1 | tee {test_audit_log}; exit $PIPESTATUS'],
-            check_rc=True)
+        for test in python_tests:
+            rc, _, _ = irods_python_ci_utilities.subprocess_get_output(['sudo', 'su', '-', 'irods', '-c',
+                f'python3 scripts/run_tests.py --xml_output --run_s={test} 2>&1 | tee {test}.log; exit $PIPESTATUS'])
+            if rc != 0:
+                python_tests_failed.append(f'{test}({rc})')
+        for test in catch2_tests:
+            test_fname = f'audit_amqp-{test}'
+            rc, _, _ = irods_python_ci_utilities.subprocess_get_output(['sudo', '-u', 'irods', '-g', 'irods', '-H',
+                f'/var/lib/irods/unit_tests/{test_fname}', '--durations=yes', '--order=decl', '--reporter=junit', f'--out=/var/lib/irods/log/{test}_junit_report.xml'])
+            if rc != 0:
+                catch2_tests_failed.append(f'{test_fname}({rc})')
+
+        if python_tests_failed or catch2_tests_failed:
+            test_list = ', '.join(itertools.chain(python_tests_failed, catch2_tests_failed))
+            raise RuntimeError('Tests failed: ' + test_list)
 
     finally:
         if options.output_root_directory:
             output_root_directory = os.path.join(options.output_root_directory, options.message_broker)
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/lib/irods/log', output_root_directory, lambda x: True)
             irods_python_ci_utilities.gather_files_satisfying_predicate('/var/log/irods', output_root_directory, lambda x: True)
-            test_output_file = os.path.join('/var/lib/irods', test_output_file)
-            if os.path.exists(test_output_file):
-                shutil.copy(test_output_file, output_root_directory)
-            test_audit_log = os.path.join('/var/lib/irods', test_audit_log)
-            if os.path.exists(test_audit_log):
-                shutil.copy(test_audit_log, output_root_directory)
+            for test in python_tests:
+                test_log = os.path.join('/var/lib/irods', test + '.log')
+                if os.path.exists(test_log):
+                    shutil.copy(test_log, output_root_directory)
 
 if __name__ == '__main__':
     main()

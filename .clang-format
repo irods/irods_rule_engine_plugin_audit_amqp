@@ -27,18 +27,19 @@ AlignConsecutiveBitFields: Consecutive
 AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: AcrossEmptyLinesAndComments
 AlignEscapedNewlines: Left
-AlignOperands:   Align
-AlignTrailingComments: true
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: false
 
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: false
-AllowAllConstructorInitializersOnNextLine: false
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+BinPackArguments: false
+BinPackParameters: false
+PackConstructorInitializers: CurrentLine
 
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
@@ -58,9 +59,7 @@ AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: Yes
 
-BinPackArguments: false
-BinPackParameters: false
-
+BreakAfterAttributes: Leave
 BreakBeforeBinaryOperators: None
 BreakBeforeConceptDeclarations: true
 BreakBeforeInheritanceComma: true
@@ -84,9 +83,9 @@ BraceWrapping:
    BeforeLambdaBody: false
    BeforeWhile:     true
    IndentBraces:    false
-   SplitEmptyFunction: true
-   SplitEmptyNamespace: true
-   SplitEmptyRecord: true
+   SplitEmptyFunction: false
+   SplitEmptyNamespace: false
+   SplitEmptyRecord: false
 
 #InsertBraces:    false
 #RemoveBracesLLVM: false

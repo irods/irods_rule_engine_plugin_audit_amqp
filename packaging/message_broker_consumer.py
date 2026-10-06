@@ -6,17 +6,28 @@ from proton.handlers import MessagingHandler
 
 
 class MessageBrokerConsumer(MessagingHandler):
-    def __init__(self, url, queue_name, pid_queue):
+    def __init__(self, endpoints, user, password, path, pid_queue):
         super(MessageBrokerConsumer, self).__init__()
-        self.url = url
-        self.queue_name = queue_name
+        self.endpoints = endpoints
+        self.user = user
+        self.password = password
+        self.path = path
         self.pid_dictionary = {}
         self.pid_queue = pid_queue
         self.last_msg_received_at = time.time()
 
     def on_start(self, event):
-        self.listener_connection = event.container.connect(self.url)
-        self.msg_receiver = event.container.create_receiver(self.listener_connection, self.queue_name)
+        connect_kwargs = {
+            "urls": self.endpoints,
+            "sasl_enabled": True,
+            "allow_insecure_mechs": True
+        }
+        if self.user:
+            connect_kwargs["user"] = self.user
+        if self.password:
+            connect_kwargs["password"] = self.password
+        self.listener_connection = event.container.connect(**connect_kwargs)
+        self.msg_receiver = event.container.create_receiver(self.listener_connection, self.path)
 
     def on_transport_error(self, event):
         print('received an error "%s"' % event)

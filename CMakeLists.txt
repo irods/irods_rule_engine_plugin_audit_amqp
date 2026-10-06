@@ -28,10 +28,12 @@ set(IRODS_MINIMUM_VERSION "4.90.0")
 set(IRODS_MAXIMUM_VERSION "6.0.0")
 find_package(IRODS "${IRODS_MINIMUM_VERSION}...<${IRODS_MAXIMUM_VERSION}" REQUIRED)
 
-set(IRODS_PLUGIN_VERSION "5.0.1")
+set(IRODS_PLUGIN_VERSION "5.1.0")
 
 set(IRODS_PACKAGE_REVISION "0")
 
+set(IRODS_RULE_ENGINE_PLUGIN_NAME "audit_amqp")
+set(IRODS_PLUGIN_FULL_NAME "irods_rule_engine_plugin-${IRODS_RULE_ENGINE_PLUGIN_NAME}")
 set(PLUGIN irods_rule_engine_plugin-audit_amqp)
 
 include(IrodsCXXCompiler)
@@ -46,10 +48,10 @@ include(IrodsExternals)
 
 IRODS_MACRO_CHECK_DEPENDENCY_SET_FULLPATH_ADD_TO_IRODS_PACKAGE_DEPENDENCIES_LIST(QPID_PROTON qpid-proton0.36.0-3)
 
-string(REPLACE ";" ", " ${PLUGIN}_PACKAGE_DEPENDENCIES_STRING "${IRODS_PACKAGE_DEPENDENCIES_LIST}")
+string(REPLACE ";" ", " ${IRODS_PLUGIN_FULL_NAME}_PACKAGE_DEPENDENCIES_STRING "${IRODS_PACKAGE_DEPENDENCIES_LIST}")
 unset(IRODS_PACKAGE_DEPENDENCIES_LIST)
 
-project(irods_rule_engine_plugin-audit_amqp
+project("${IRODS_PLUGIN_FULL_NAME}"
   VERSION "${IRODS_PLUGIN_VERSION}"
   LANGUAGES CXX)
 
@@ -62,58 +64,114 @@ endif()
 
 include(GNUInstallDirs)
 include(CheckCXXSymbolExists)
+include(ObjectTargetHelpers)
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
 find_package(fmt "8.1.1" REQUIRED)
 
-add_library(
-  ${PLUGIN}
-  MODULE
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
-  )
 set(
-  ${PLUGIN}_HEADERS
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
+  ${IRODS_PLUGIN_FULL_NAME}_SOURCES
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_config.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/audit_config.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/proton_error_event.cpp"
+)
+set(
+  ${IRODS_PLUGIN_FULL_NAME}_HEADERS
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_config.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_sender.hpp"
-  )
-target_sources(${PLUGIN} PRIVATE ${${PLUGIN}_HEADERS})
-target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
-target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_config.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_error_event.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_formatters.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_object_type.hpp"
+)
+set(
+  ${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATORS
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp.in"
+)
+set(
+  ${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATED
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp"
+)
+
+set_source_files_properties(
+  "${${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATORS}"
+  PROPERTIES
+  HEADER_FILE_ONLY ON
+)
+set_source_files_properties(
+  "${${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATED}"
+  PROPERTIES
+  GENERATED ON
+)
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/irods/private/audit_amqp_version.hpp"
+  @ONLY
+)
+
+add_library(
+  ${IRODS_PLUGIN_FULL_NAME}_obj
+  OBJECT
+  "${${IRODS_PLUGIN_FULL_NAME}_SOURCES}"
+  "${${IRODS_PLUGIN_FULL_NAME}_HEADERS}"
+  "${${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATORS}"
+  "${${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATED}"
+)
+target_compile_options(${IRODS_PLUGIN_FULL_NAME}_obj PRIVATE -Wno-write-strings)
+target_compile_definitions(${IRODS_PLUGIN_FULL_NAME}_obj PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
-  ${PLUGIN}
-  PRIVATE
+  ${IRODS_PLUGIN_FULL_NAME}_obj
+  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  PRIVATE
   ${IRODS_INCLUDE_DIRS}
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
 
 target_link_libraries(
-  ${PLUGIN}
-  PRIVATE
+  ${IRODS_PLUGIN_FULL_NAME}_obj
+  PUBLIC
   irods_server
   irods_common
   nlohmann_json::nlohmann_json
   fmt::fmt
+  PRIVATE
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_url.so
   ${CMAKE_DL_LIBS}
   )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(${IRODS_PLUGIN_FULL_NAME}_obj PRIVATE IRODS_AUDIT_EXTRA_TRACE)
+endif()
 
 check_cxx_symbol_exists(__cpp_lib_filesystem "version" HAVE_STD_FILESYSTEM)
 if (NOT HAVE_STD_FILESYSTEM)
   target_link_libraries(
-    ${PLUGIN}
+    ${IRODS_PLUGIN_FULL_NAME}_obj
     PRIVATE
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
     )
 endif()
 
-install(TARGETS ${PLUGIN} LIBRARY DESTINATION ${IRODS_PLUGINS_DIRECTORY}/rule_engines)
+add_library(${IRODS_PLUGIN_FULL_NAME} MODULE)
+target_link_objects(
+	${IRODS_PLUGIN_FULL_NAME}
+	PRIVATE
+	${IRODS_PLUGIN_FULL_NAME}_obj
+)
+
+install(TARGETS ${IRODS_PLUGIN_FULL_NAME} LIBRARY DESTINATION ${IRODS_PLUGINS_DIRECTORY}/rule_engines)
 
 install(
   FILES
@@ -163,10 +221,10 @@ set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 
 set(CPACK_DEBIAN_PACKAGE_NAME ${PLUGIN_PACKAGE_NAME})
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, ${${PLUGIN}_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION})")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "${IRODS_PACKAGE_DEPENDENCIES_STRING}, ${${IRODS_PLUGIN_FULL_NAME}_PACKAGE_DEPENDENCIES_STRING}, irods-runtime (= ${IRODS_VERSION})")
 
 set(CPACK_RPM_PACKAGE_NAME ${PLUGIN_PACKAGE_NAME})
-set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, ${${PLUGIN}_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}")
+set(CPACK_RPM_PACKAGE_REQUIRES "${IRODS_PACKAGE_DEPENDENCIES_STRING}, ${${IRODS_PLUGIN_FULL_NAME}_PACKAGE_DEPENDENCIES_STRING}, irods-runtime = ${IRODS_VERSION}")
 
 
 if (NOT CPACK_GENERATOR)

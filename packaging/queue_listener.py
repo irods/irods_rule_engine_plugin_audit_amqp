@@ -9,11 +9,13 @@ from proton.reactor import Container
 
 
 class QueueListener(object):
-    def __init__(self, pid_queue, result_queue, url, queue_name):
+    def __init__(self, pid_queue, result_queue, endpoints, user, password, path):
         self.pid_queue = pid_queue
         self.result_queue = result_queue
-        self.url = url
-        self.queue_name = queue_name
+        self.endpoints = endpoints
+        self.user = user
+        self.password = password
+        self.path = path
 
     def run(self):
 
@@ -23,7 +25,7 @@ class QueueListener(object):
             worker = MessageWorker(self.pid_queue, self.result_queue)
             worker.start()
 
-        consumer = MessageBrokerConsumer(self.url, self.queue_name, self.pid_queue)
+        consumer = MessageBrokerConsumer(self.endpoints, self.user, self.password, self.path, self.pid_queue)
         container = Container(consumer)
 
         class TimerClass(object):

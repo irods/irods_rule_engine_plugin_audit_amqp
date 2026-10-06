@@ -1,56 +1,46 @@
-// irods includes
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/audit_b64enc.hpp"
+#include "irods/private/audit_config.hpp"
 #include "irods/private/amqp_sender.hpp"
-#include <irods/irods_at_scope_exit.hpp>
+
+#include <irods/irods_configuration_keywords.hpp>
+#include <irods/irods_error.hpp>
+#include <irods/irods_exception.hpp>
 #include <irods/irods_logger.hpp>
+#include <irods/irods_state_table.h>
 #include <irods/irods_re_plugin.hpp>
 #include <irods/irods_re_serialization.hpp>
-#include <irods/irods_server_properties.hpp>
+#include <irods/irods_re_structs.hpp>
+#include <irods/msParam.h>
+#include <irods/rodsDef.h>
+#include <irods/rodsErrorTable.h>
 
-// LIST is #defined in irods/reconstants.hpp
-// and is an enum entry in proton/type_id.hpp
-#ifdef LIST
-#  undef LIST
-#endif
-
-// boost includes
 #include <boost/any.hpp>
-#include <boost/config.hpp>
-#include <boost/exception/all.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
 
-// proton-cpp includes
-#include <proton/connection.hpp>
-#include <proton/connection_options.hpp>
-#include <proton/container.hpp>
-#include <proton/message.hpp>
-#include <proton/messaging_handler.hpp>
-#include <proton/timestamp.hpp>
-#include <proton/tracker.hpp>
-#include <proton/transport.hpp>
-#include <proton/sender.hpp>
-#include <proton/session.hpp>
-
-// misc includes
-#include <nlohmann/json.hpp>
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/compile.h>
 
-// stl includes
-#include <cstdint>
-#include <version>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <string_view>
+#include <nlohmann/json.hpp>
+
+#include <proton/error.hpp>
+
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <chrono>
-#include <map>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
-#include <mutex>
+#include <functional>
+#include <exception>
+#include <iostream>
+#include <list>
+#include <map>
 #include <regex>
+#include <string>
+#include <vector>
+#include <version>
+#include <utility>
 
 // filesystem
 // clang-format off
@@ -71,296 +61,418 @@ namespace irods::plugin::rule_engine::audit_amqp
 {
 	namespace
 	{
-		const auto pep_regex_flavor = std::regex::ECMAScript;
-
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-		const std::string_view default_pep_regex_to_match{"pep_.+"};
-		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+		plugin_config audit_config;
+		irods::error error_state;
 
-		const fs::path default_log_path_prefix{fs::temp_directory_path()};
-		const bool default_test_mode = false;
-
-		std::string audit_pep_regex_to_match;
-		std::string audit_amqp_url;
-
-		fs::path log_path_prefix;
-		bool test_mode;
-
-		bool warned_amqp_options = false;
+		amqp_sender audit_amqp_sender;
 
 		fs::path log_file_path;
 		std::ofstream log_file_ofstream;
-
-		// audit_pep_regex is initially populated with an unoptimized default, as optimization
-		// makes construction slower, and we don't expect it to be used before configuration is read.
-		std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
-
-		std::mutex audit_plugin_mutex;
 		// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-	} // namespace
 
-	static BOOST_FORCEINLINE void set_default_configs()
-	{
-		audit_pep_regex_to_match = default_pep_regex_to_match;
-		audit_amqp_url = default_amqp_url;
-		test_mode = default_test_mode;
-		log_path_prefix = default_log_path_prefix;
-
-		audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
-	}
-
-	static auto get_re_configs(const std::string& _instance_name) -> irods::error
-	{
-		try {
-			const auto& rule_engines = irods::get_server_property<const nlohmann::json&>(
-				std::vector<std::string>{irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE});
-			for (const auto& rule_engine : rule_engines) {
-				const auto& inst_name = rule_engine.at(irods::KW_CFG_INSTANCE_NAME).get_ref<const std::string&>();
-				if (inst_name != _instance_name) {
-					continue;
-				}
-
-				if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) <= 0) {
-					set_default_configs();
-					// clang-format off
-					log_re::debug({
-						{"rule_engine_plugin", rule_engine_name},
-						{"log_message", "Using default plugin configuration"},
-						{"instance_name", _instance_name},
-					});
-					// clang-format on
-
-					return SUCCESS();
-				}
-
-				const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
-
-				audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
-
-				const auto& amqp_topic = plugin_spec_cfg.at("amqp_topic").get_ref<const std::string&>();
-				const auto& amqp_location = plugin_spec_cfg.at("amqp_location").get_ref<const std::string&>();
-				audit_amqp_url = fmt::format(FMT_STRING("{0:s}/{1:s}"), amqp_location, amqp_topic);
-
-				// test_mode is optional
-				const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
-				if (test_mode_cfg == plugin_spec_cfg.end()) {
-					test_mode = default_test_mode;
-				}
-				else {
-					const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-					test_mode = boost::iequals(test_mode_str, "true");
-				}
-
-				// log_path_prefix is optional
-				const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
-				if (log_path_prefix_cfg == plugin_spec_cfg.end()) {
-					log_path_prefix = default_log_path_prefix;
-				}
-				else {
-					log_path_prefix = log_path_prefix_cfg->get<std::string>();
-				}
-
-				// look for amqp_options and log a warning if it is present
-				const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
-				if (amqp_options_cfg != plugin_spec_cfg.end() && !warned_amqp_options) {
-					// clang-format off
-					log_re::warn({
-						{"rule_engine_plugin", rule_engine_name},
-						{"log_message", "Found amqp_options configuration setting. This setting is no longer used and "
-						                "should be removed from the plugin configuration."},
-						{"instance_name", _instance_name},
-					});
-					// clang-format on
-					warned_amqp_options = true;
-				}
-
-				audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
-
-				return SUCCESS();
-			}
-		}
-		catch (const std::out_of_range& e) {
-			return ERROR(KEY_NOT_FOUND, e.what());
-		}
-		catch (const nlohmann::json::exception& e) {
-			return ERROR(SYS_LIBRARY_ERROR, e.what());
-		}
-		catch (const std::exception& e) {
-			return ERROR(SYS_INTERNAL_ERR, e.what());
-		}
-		catch (...) {
-			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
-		}
-
-		return ERROR(SYS_INVALID_INPUT_PARAM, "failed to find plugin configuration");
-	}
-
-	static auto setup(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
-	{
-		return SUCCESS();
-	} // setup
-
-	static auto teardown(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
-	{
-		return SUCCESS();
-	} // teardown
-
-	static auto start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
-		-> irods::error
-	{
-		std::lock_guard<std::mutex> lock(audit_plugin_mutex);
-
-		irods::error ret = get_re_configs(_instance_name);
-		if (!ret.ok()) {
+		template <class Logger>
+		void log_test_mode_diag(const Logger& _logger,
+		                        const std::string& _log_message,
+		                        const std::string& _instance_name,
+		                        const std::string& _test_mode_log_path)
+		{
 			// clang-format off
-			log_re::error({
+			_logger({
 				{"rule_engine_plugin", rule_engine_name},
-				{"log_message", "Error loading plugin configuration"},
-				{"instance_name", _instance_name},
-				{"error_result", ret.result()},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_file_path", _test_mode_log_path},
+				{"log_message", _log_message},
 			});
 			// clang-format on
 		}
 
-		nlohmann::json json_obj;
+		template <class Logger>
+		void log_test_mode_diag(const Logger& _logger,
+		                        const std::string& _log_message,
+		                        const std::string& _instance_name)
+		{
+			// clang-format off
+			_logger({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", _log_message},
+			});
+			// clang-format on
+		}
 
-		std::string msg_str;
+	} // namespace
 
-		irods::at_scope_exit write_msg_to_test_log{[&] {
-			log_re::trace("{}: RUNNING AT_SCOPE_EXIT FOR WRITING TO FSTREAM.", __func__);
-			if (test_mode) {
-				if (log_file_path.empty()) {
-					log_re::trace("{}: log_file_path is empty. cannot log audit message to test file.", __func__);
-					return;
-				}
+	static irods::error setup([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+			{"log_message", "setup called"},
+		});
+		// clang-format on
+#endif
+		try {
+			// test log should never throw exceptions
+			log_file_ofstream.exceptions(static_cast<std::ios_base::iostate>(0));
 
-				if (!log_file_ofstream.is_open()) {
-					error_code_type ec;
-					fs::create_directories(log_file_path.parent_path(), ec);
+			irods::error ret = audit_config.initialize(_instance_name);
+			if (!ret.ok()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"log_message", "Error loading plugin configuration"},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
 
-					log_re::trace("{}: opening log_file_ofstream [{}].", __func__, log_file_path.c_str());
-					log_file_ofstream.open(log_file_path);
-				}
-
-				if (!log_file_ofstream) {
-					log_re::trace("{}: log_file_ofstream not in a good state.", __func__);
-				}
-
-				log_re::trace("{}: writing amqp message to log_file_ofstream [{}].", __func__, log_file_path.c_str());
-				log_file_ofstream << msg_str << std::endl;
+				error_state = PASSMSG("Error loading plugin configuration", ret);
+				return error_state;
 			}
-		}};
+
+			ret = audit_amqp_sender.configure(_instance_name, audit_config.amqp_config());
+			if (!ret.ok()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"log_message", "Error establishing AMQP connection"},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
+
+				error_state = PASSMSG("Error configuring amqp_sender", ret);
+				return error_state;
+			}
+		}
+		catch (const irods::exception& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
+			error_state =
+				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			return error_state;
+		}
+		catch (const std::exception& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
+			error_state = ERROR(
+				SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			return error_state;
+		}
+		catch (...) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "Caught unknown exception"}
+			});
+			// clang-format on
+			error_state = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin setup.");
+			return error_state;
+		}
+
+		error_state = SUCCESS();
+		return error_state;
+	} // setup
+
+	static irods::error teardown([[maybe_unused]] irods::default_re_ctx& _re_ctx,
+	                             [[maybe_unused]] const std::string& _instance_name)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+			{"log_message", "teardown called"},
+		});
+		// clang-format on
+#endif
+		// reset error state
+		error_state = SUCCESS();
+		return error_state;
+	} // teardown
+
+	static irods::error start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+			{"log_message", "start called"},
+		});
+		// clang-format on
+#endif
+
+		if (!error_state.ok()) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "start called with plugin in error state"},
+				{"error_state::result", error_state.result()},
+			});
+			// clang-format on
+
+			return error_state;
+		}
+
+		nlohmann::json json_obj;
+		const pid_t pid = getpid();
 
 		try {
-			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["@timestamp"] = time_ms;
-			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
+			const std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 
-			pid_t pid = getpid();
-			json_obj["pid"] = pid;
+			irods::error ret = audit_amqp_sender.open();
+			if (!ret.ok()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"log_message", "Error establishing AMQP connection"},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
+
+				error_state = PASSMSG("Error establishing AMQP connection", ret);
+				return error_state;
+			}
 
 			json_obj["action"] = "START";
 
-			if (test_mode) {
-				log_file_path = log_path_prefix / fmt::format(FMT_STRING("{0:08d}.txt"), pid);
-				json_obj["log_file"] = log_file_path;
+			if (audit_config.test_mode_enabled()) {
+				if (audit_config.test_mode_log_path_prefix().empty()) {
+					log_test_mode_diag(
+						log_re::trace, "log_path_prefix is empty. cannot open test log.", _instance_name);
+					log_file_path.clear();
+					// ensure log_file_ofstream is closed
+					if (log_file_ofstream.is_open()) {
+						log_test_mode_diag(log_re::trace, "log_file_ofstream open. Closing.", _instance_name);
+						log_file_ofstream.close();
+						if (!log_file_ofstream.good()) {
+							log_test_mode_diag(log_re::error, "Error closing log_file_ofstream.", _instance_name);
+						}
+					}
+				}
+				else {
+					log_file_path =
+						audit_config.test_mode_log_path_prefix() / fmt::format(FMT_COMPILE("{0:08d}.txt"), pid);
+					json_obj["log_file"] = log_file_path;
+
+					const std::string log_file_path_str = log_file_path.string();
+
+					if (log_file_ofstream.is_open()) {
+						log_test_mode_diag(log_re::trace,
+						                   "log_file_ofstream already open. Closing.",
+						                   _instance_name,
+						                   log_file_path_str);
+						log_file_ofstream.close();
+						if (!log_file_ofstream.good()) {
+							log_test_mode_diag(log_re::error, "Error closing log_file_ofstream.", _instance_name);
+						}
+					}
+
+					error_code_type mkdirs_ec;
+					fs::create_directories(log_file_path.parent_path(), mkdirs_ec);
+
+					log_test_mode_diag(log_re::trace, "opening log_file_ofstream.", _instance_name, log_file_path_str);
+					log_file_ofstream.open(log_file_path, std::ios_base::out | std::ios_base::ate);
+					if (!log_file_ofstream.good()) {
+						log_test_mode_diag(
+							log_re::error, "Error opening log_file_ofstream.", _instance_name, log_file_path_str);
+					}
+				}
+			}
+			else {
+				// ensure log_file_ofstream is closed
+				if (log_file_ofstream.is_open()) {
+					log_test_mode_diag(
+						log_re::error, "Test mode disabled but log_file_ofstream open. Closing.", _instance_name);
+					log_file_ofstream.close();
+					if (!log_file_ofstream.good()) {
+						log_test_mode_diag(log_re::error, "Error closing log_file_ofstream.", _instance_name);
+					}
+				}
 			}
 
-			msg_str = json_obj.dump();
-
-			proton::message msg(msg_str);
-			msg.content_type("application/json");
-			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
-			send_handler handler(msg, audit_amqp_url);
-			proton::container(handler).run();
+			const auto err = audit_amqp_sender.send_message(json_obj, time_ms, pid, log_file_ofstream);
+			if (!err.ok()) {
+				error_state = SUCCESS();
+				return err;
+			}
 		}
 		catch (const irods::exception& e) {
-			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
-			return ERROR(e.code(), e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
+			error_state =
+				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (const nlohmann::json::exception& e) {
-			log_exception(e, "Caught nlohmann-json exception", {"instance_name", _instance_name});
-			return ERROR(SYS_LIBRARY_ERROR, e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
+			error_state =
+				ERROR(SYS_LIBRARY_ERROR,
+				      fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during plugin start: {}"), e_what));
+			return error_state;
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
+			error_state =
+				ERROR(SYS_LIBRARY_ERROR,
+				      fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (const std::exception& e) {
-			log_exception(e, "Caught exception", {"instance_name", _instance_name});
-			return ERROR(SYS_INTERNAL_ERR, e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
+			error_state = ERROR(
+				SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (...) {
-			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "Caught unknown exception"}
+			});
+			// clang-format on
+			error_state = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin start.");
+			return error_state;
 		}
 
-		return SUCCESS();
+		error_state = SUCCESS();
+		return error_state;
 	}
 
 	static auto stop([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
 	{
-		std::lock_guard<std::mutex> lock(audit_plugin_mutex);
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+			{"log_message", "stop called"},
+		});
+		// clang-format on
+#endif
+
+		if (!error_state.ok()) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "stop called with plugin in error state"},
+				{"error_state::result", error_state.result()},
+			});
+			// clang-format on
+
+			return error_state;
+		}
 
 		nlohmann::json json_obj;
-
-		std::string msg_str;
-		std::string log_file;
+		irods::error ret = SUCCESS();
 
 		try {
-			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["@timestamp"] = time_ms;
+			const std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 
-			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
-			json_obj["pid"] = getpid();
 			json_obj["action"] = "STOP";
-
-			if (test_mode) {
+			if (audit_config.test_mode_enabled() && !log_file_path.empty()) {
 				json_obj["log_file"] = log_file_path;
 			}
 
-			msg_str = json_obj.dump();
-
-			proton::message msg(msg_str);
-			msg.content_type("application/json");
-			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
-			send_handler handler(msg, audit_amqp_url);
-			proton::container(handler).run();
+			const auto err = audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
+			audit_amqp_sender.close();
+			if (!err.ok()) {
+				ret = err;
+			}
 		}
 		catch (const irods::exception& e) {
-			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
-			return ERROR(e.code(), e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
+			ret = ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during plugin stop: {}"), e_what));
 		}
 		catch (const nlohmann::json::exception& e) {
-			log_exception(e, "Caught nlohmann-json exception", {"instance_name", _instance_name});
-			return ERROR(SYS_LIBRARY_ERROR, e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
+			ret = ERROR(SYS_LIBRARY_ERROR,
+			            fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during plugin stop: {}"), e_what));
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
+			ret = ERROR(SYS_LIBRARY_ERROR,
+			            fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during plugin stop: {}"), e_what));
 		}
 		catch (const std::exception& e) {
-			log_exception(e, "Caught exception", {"instance_name", _instance_name});
-			return ERROR(SYS_INTERNAL_ERR, e.what());
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
+			ret =
+				ERROR(SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin stop: {}"), e_what));
 		}
 		catch (...) {
-			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "Caught unknown exception"}
+			});
+			// clang-format on
+			ret = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin stop.");
 		}
 
-		if (test_mode) {
-			if (!log_file_ofstream.is_open()) {
-				log_file_ofstream.open(log_file_path);
-			}
-			log_file_ofstream << msg_str << std::endl;
-			log_file_ofstream.close();
+		log_file_ofstream.close();
+		if (!log_file_ofstream.good()) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "Error closing log_file_ofstream."}
+			});
+			// clang-format on
 		}
 
-		return SUCCESS();
+		return ret;
 	}
 
 	static auto rule_exists([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _rn, bool& _ret)
 		-> irods::error
 	{
 		try {
-			std::smatch matches;
-			_ret = std::regex_match(_rn, matches, audit_pep_regex);
+			if (audit_config.pep_regex().has_value()) {
+				std::smatch matches;
+				_ret = std::regex_match(_rn, matches, audit_config.pep_regex().value());
+				if ((audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) &&
+				    !error_state.ok())
+				{
+					// TODO: should we be doing this?
+					return error_state;
+				}
+			}
+			else if (!error_state.ok()) {
+				return error_state;
+			}
+			else {
+				// if we wind up here, something terrible has happened.
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"log_message", "No pep_regex, but no error_state."}
+				});
+				// clang-format on
+				return ERROR(RE_RUNTIME_ERROR, "No pep_regex, but no error_state.");
+			}
 		}
 		catch (const std::exception& _e) {
 			return ERROR(SYS_INTERNAL_ERR, _e.what());
 		}
 		catch (...) {
-			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
+			return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
 		}
 
 		return SUCCESS();
@@ -379,7 +491,40 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::list<boost::any>& _ps,
 		irods::callback _eff_hdlr) -> irods::error
 	{
-		std::lock_guard<std::mutex> lock(audit_plugin_mutex);
+		const std::string& _instance_name = audit_amqp_sender.re_instance_name();
+
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+			{"log_message", "exec_rule called"},
+		});
+		// clang-format on
+#endif
+
+		if (!error_state.ok()) {
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::ALLOW_OPERATION) {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"rule_name", _rn},
+					{"log_message", "Plugin is in error state. Skipping audit."}
+				});
+				// clang-format on
+				return CODE(RULE_ENGINE_CONTINUE);
+			}
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"rule_name", _rn},
+				{"log_message", "Plugin is in error state. Returning previous error."}
+			});
+			// clang-format on
+			return error_state;
+		}
 
 		// stores a counter of unique arg types
 		std::map<std::string, std::size_t> arg_type_map;
@@ -389,24 +534,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::trace({
 				{"rule_engine_plugin", rule_engine_name},
-				{"log_message", "could not get rule execution context (REI)"},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"rule_name", _rn},
+				{"log_message", "Could not get rule execution context (REI)"},
 				{"error_result", err.result()}
 			});
 			// clang-format on
-			return CODE(RULE_ENGINE_CONTINUE);
+
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::ALLOW_OPERATION) {
+				return CODE(RULE_ENGINE_CONTINUE);
+			}
+			return err;
 		}
 
 		nlohmann::json json_obj;
 
-		std::string msg_str;
-		std::string log_file;
-
 		try {
-			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["@timestamp"] = time_ms;
-			json_obj["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
-			json_obj["pid"] = getpid();
+			const std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["rule_name"] = _rn;
 
 			for (const auto& itr : _ps) {
@@ -417,8 +561,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::trace({
 						{"rule_engine_plugin", rule_engine_name},
-						{"log_message", "skipping serialization of BytesBuf parameter"},
+						{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 						{"rule_name", _rn},
+						{"log_message", "Skipping serialization of BytesBuf parameter"}
 					});
 					// clang-format on
 					continue;
@@ -431,9 +576,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"log_message", "failed to serialize argument"},
+						{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 						{"rule_name", _rn},
-						{"error_result", ret.result()},
+						{"log_message", "Failed to serialize argument"},
+						{"error_result", ret.result()}
 					});
 					// clang-format on
 					continue;
@@ -463,38 +609,56 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 			}
 
-			msg_str = json_obj.dump();
-
-			proton::message msg(msg_str);
-			msg.content_type("application/json");
-			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
-			send_handler handler(msg, audit_amqp_url);
-			proton::container(handler).run();
+			auto err = audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
+			if (!err.ok() && (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION)) {
+				return err;
+			}
 		}
 		catch (const irods::exception& e) {
-			log_exception(e, "Caught iRODS exception", {"rule_name", _rn});
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during exec_rule: {}"), e_what));
+			}
 		}
 		catch (const nlohmann::json::exception& e) {
-			log_exception(e, "Caught nlohmann-json exception", {"rule_name", _rn});
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					SYS_LIBRARY_ERROR,
+					fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during exec_rule: {}"), e_what));
+			}
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(SYS_LIBRARY_ERROR,
+				             fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during exec_rule: {}"), e_what));
+			}
 		}
 		catch (const std::exception& e) {
-			log_exception(e, "Caught exception", {"rule_name", _rn});
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during exec_rule: {}"), e_what));
+			}
 		}
 		catch (...) {
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"log_message", "an unknown error occurred"},
-				{"rule_name", _rn}
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"rule_name", _rn},
+				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
-		}
-
-		if (test_mode) {
-			if (!log_file_ofstream.is_open()) {
-				log_file_ofstream.open(log_file_path);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(SYS_UNKNOWN_ERROR, "Unknown error during exec_rule.");
 			}
-			log_file_ofstream << msg_str << std::endl;
 		}
 
 		return CODE(RULE_ENGINE_CONTINUE);
@@ -510,8 +674,6 @@ using pluggable_rule_engine = irods::pluggable_rule_engine<irods::default_re_ctx
 extern "C" auto plugin_factory(const std::string& _inst_name, const std::string& _context) -> pluggable_rule_engine*
 {
 	using namespace irods::plugin::rule_engine::audit_amqp;
-
-	set_default_configs();
 
 	const auto not_supported = [](auto&&...) { return ERROR(SYS_NOT_SUPPORTED, "Not supported."); };
 
